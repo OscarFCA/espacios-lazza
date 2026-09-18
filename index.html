@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F5F3EE">
+<title>Espacios Lazza · Propiedades con potencial</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Terrenos, casas para remodelar y propiedades con potencial en la Ciudad de México. Encuentra el espacio. Imagina lo que puede ser.">
+<meta property="og:title" content="Espacios Lazza · Propiedades con potencial">
+<meta property="og:description" content="Terrenos, casas para remodelar y propiedades con potencial en la Ciudad de México.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/lazza-lockup.png">
+<link rel="icon" href="assets/lazza-mark-trim.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">Saltar al contenido</a>
+
+<header class="header">
+  <div class="container header__bar">
+    <button class="header__logo" data-action="home" aria-label="Espacios Lazza — inicio">
+      <img src="assets/lazza-lockup-trim.png" alt="Espacios Lazza">
+    </button>
+
+    <nav class="header__nav" id="nav-desktop" aria-label="Principal"></nav>
+
+    <div class="header__actions">
+      <button class="icon-btn" data-action="favs" aria-label="Favoritos">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.8 8.6c0 4.7-8.8 10-8.8 10s-8.8-5.3-8.8-10a5 5 0 0 1 8.8-3.1 5 5 0 0 1 8.8 3.1Z"/></svg>
+      </button>
+      <button class="btn btn--tertiary header__cta" data-action="cuenta">Cuenta</button>
+      <button class="btn btn--secondary header__cta" data-action="publicar">Publicar propiedad</button>
+      <button class="icon-btn header__menu" data-action="menu-open" aria-label="Abrir menú" aria-expanded="false" aria-controls="drawer">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="overlay" id="overlay" hidden></div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menú" hidden>
+  <div class="drawer__head">
+    <img src="assets/lazza-mark-trim.png" alt="" aria-hidden="true" style="height:22px;width:auto;mix-blend-mode:multiply">
+    <button class="icon-btn" data-action="menu-close" aria-label="Cerrar menú">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+  <nav class="drawer__body" id="nav-mobile" aria-label="Principal (móvil)"></nav>
+  <div class="drawer__foot">
+    <button class="btn btn--secondary btn--block btn--lg" data-action="publicar">Publicar propiedad</button>
+    <button class="btn btn--tertiary btn--block" data-action="cuenta" style="margin-top:8px">Cuenta</button>
+  </div>
+</aside>
+
+<main id="main" tabindex="-1"></main>
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <img src="assets/lazza-mark-trim.png" alt="" aria-hidden="true">
+      <p class="footer__tag">PROPIEDADES CON POTENCIAL</p>
+    </div>
+    <p class="footer__note">Prototipo · Ciudad de México</p>
+  </div>
+</footer>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

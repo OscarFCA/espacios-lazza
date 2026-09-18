@@ -1,0 +1,976 @@
+/* Espacios Lazza — aplicación mobile first.
+ * Vanilla JS, sin dependencias. Ruteo por hash para que el botón "atrás"
+ * del teléfono funcione y las búsquedas se puedan compartir.
+ */
+(function () {
+  "use strict";
+
+  var DATA = window.EL_DATA || [];
+  var CAT = window.EL_CATALOG || {};
+  var main = document.getElementById("main");
+  var sheet = document.getElementById("sheet");
+  var drawer = document.getElementById("drawer");
+  var overlay = document.getElementById("overlay");
+  var toastEl = document.getElementById("toast");
+
+  var DEFAULTS = {
+    op: "venta", q: "", tipo: "Todos", remodelar: false,
+    min: 0, max: 0, terrenoMin: 0, constMin: 0, rec: 0, ban: 0, autos: 0,
+    sort: "Relevancia", view: "lista"
+  };
+
+  var state = Object.assign({}, DEFAULTS, {
+    screen: "home", sel: null, favs: loadFavs(), hover: null,
+    loading: false, error: false, peek: null
+  });
+
+  var draft = null;          // copia de filtros mientras el bottom sheet está abierto
+  var lastFocus = null;      // foco previo a abrir drawer/sheet
+  var toastTimer = null;
+  var loadTimer = null;
+
+  /* ============================ utilidades ============================ */
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function money(n, op) {
+    var s = "$" + Number(n).toLocaleString("en-US");
+    return op === "renta" ? s + " MXN / mes" : s + " MXN";
+  }
+  function shortMoney(n, op) {
+    if (op === "renta") return "$" + Math.round(n / 1000) + "k";
+    return "$" + (n / 1000000).toFixed(1).replace(".0", "") + "M";
+  }
+  function areaLine(p) {
+    var parts = [];
+    if (p.terreno) parts.push(p.terreno.toLocaleString("en-US") + " m² terreno");
+    if (p.construido) parts.push(p.construido + " m² construidos");
+    return parts.join(" · ");
+  }
+  function roomsLine(p) {
+    if (!p.rec) return "Frente " + p.frente + " · Uso habitacional";
+    return p.rec + " rec · " + p.ban + " baños · " + p.autos + " autos";
+  }
+  function priceLabel(n, op) {
+    // Legible por lector de pantalla: evita que "$12,800,000" se lea como dígitos sueltos.
+    if (op === "renta") return Number(n).toLocaleString("es-MX") + " pesos mexicanos por mes";
+    return Number(n).toLocaleString("es-MX") + " pesos mexicanos";
+  }
+
+  function loadFavs() {
+    try { return JSON.parse(localStorage.getItem("el:favs") || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function saveFavs() {
+    try { localStorage.setItem("el:favs", JSON.stringify(state.favs)); } catch (e) {}
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("is-on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2400);
+  }
+
+  /* ============================ filtrado ============================ */
+
+  function matches(p, f) {
+    if (p.op !== f.op) return false;
+    var q = (f.q || "").trim().toLowerCase();
+    if (q && (p.zona + " " + p.title).toLowerCase().indexOf(q) === -1) return false;
+    if (f.tipo === "Para remodelar") { if (!p.remodelar) return false; }
+    else if (f.tipo !== "Todos" && p.tipo !== f.tipo) return false;
+    if (f.remodelar && !p.remodelar) return false;
+    if (f.min && p.price < f.min) return false;
+    if (f.max && p.price > f.max) return false;
+    if (f.terrenoMin && p.terreno < f.terrenoMin) return false;
+    if (f.constMin && p.construido < f.constMin) return false;
+    if (f.rec && p.rec < f.rec) return false;
+    if (f.ban && p.ban < f.ban) return false;
+    if (f.autos && p.autos < f.autos) return false;
+    return true;
+  }
+
+  function filtered(f) {
+    var out = DATA.filter(function (p) { return matches(p, f); });
+    var by = {
+      "Precio menor": function (a, b) { return a.price - b.price; },
+      "Precio mayor": function (a, b) { return b.price - a.price; },
+      "Mayor terreno": function (a, b) { return b.terreno - a.terreno; },
+      "Más recientes": function (a, b) { return a.nuevo - b.nuevo; }
+    }[f.sort];
+    return by ? out.slice().sort(by) : out;
+  }
+
+  function activeFilterCount(f) {
+    var n = 0;
+    if (f.tipo !== "Todos") n++;
+    if (f.remodelar) n++;
+    if (f.min || f.max) n++;
+    if (f.terrenoMin) n++;
+    if (f.constMin) n++;
+    if (f.rec) n++;
+    if (f.ban) n++;
+    if (f.autos) n++;
+    return n;
+  }
+
+  function chips(f) {
+    var c = [];
+    if (f.q.trim()) c.push({ key: "q", label: f.q.trim() });
+    if (f.tipo !== "Todos") c.push({ key: "tipo", label: f.tipo });
+    if (f.remodelar) c.push({ key: "remodelar", label: "Para remodelar" });
+    if (f.min && f.max) c.push({ key: "precio", label: "$" + f.min.toLocaleString("en-US") + " – $" + f.max.toLocaleString("en-US") });
+    else if (f.max) c.push({ key: "precio", label: "Hasta $" + f.max.toLocaleString("en-US") });
+    else if (f.min) c.push({ key: "precio", label: "Desde $" + f.min.toLocaleString("en-US") });
+    if (f.terrenoMin) c.push({ key: "terrenoMin", label: "Terreno " + f.terrenoMin + " m²+" });
+    if (f.constMin) c.push({ key: "constMin", label: "Construido " + f.constMin + " m²+" });
+    if (f.rec) c.push({ key: "rec", label: f.rec + "+ recámaras" });
+    if (f.ban) c.push({ key: "ban", label: f.ban + "+ baños" });
+    if (f.autos) c.push({ key: "autos", label: f.autos + "+ autos" });
+    return c;
+  }
+
+  /* ============================ ruteo ============================ */
+
+  var QUERY_KEYS = ["op", "q", "tipo", "remodelar", "min", "max", "terrenoMin", "constMin", "rec", "ban", "autos", "sort", "view"];
+
+  function toQuery() {
+    var qs = [];
+    QUERY_KEYS.forEach(function (k) {
+      var v = state[k];
+      if (v === DEFAULTS[k] || v === "" || v === 0 || v === false) return;
+      qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(v === true ? "1" : v));
+    });
+    return qs.length ? "?" + qs.join("&") : "";
+  }
+
+  function applyQuery(qs) {
+    var f = Object.assign({}, DEFAULTS);
+    (qs || "").replace(/^\?/, "").split("&").forEach(function (pair) {
+      if (!pair) return;
+      var i = pair.indexOf("=");
+      var k = decodeURIComponent(i < 0 ? pair : pair.slice(0, i));
+      var v = decodeURIComponent(i < 0 ? "" : pair.slice(i + 1));
+      if (QUERY_KEYS.indexOf(k) === -1) return;
+      if (typeof DEFAULTS[k] === "number") f[k] = Number(v) || 0;
+      else if (typeof DEFAULTS[k] === "boolean") f[k] = v === "1" || v === "true";
+      else f[k] = v;
+    });
+    Object.assign(state, f);
+  }
+
+  function hashFor(screen) {
+    if (screen === "results") return "#/resultados" + toQuery();
+    if (screen === "detail") return "#/propiedad/" + state.sel;
+    return "#/";
+  }
+
+  function go(screen, patch, opts) {
+    if (patch) Object.assign(state, patch);
+    state.screen = screen;
+    var h = hashFor(screen);
+    if (location.hash === h) { route(true); }
+    else if (opts && opts.replace) { history.replaceState(null, "", h); route(true); }
+    else { location.hash = h; }
+  }
+
+  function route(forced) {
+    var h = location.hash || "#/";
+    var qi = h.indexOf("?");
+    var path = qi < 0 ? h : h.slice(0, qi);
+    var qs = qi < 0 ? "" : h.slice(qi);
+
+    closeDrawer(true);
+    closeSheet(true);
+
+    if (path.indexOf("#/propiedad/") === 0) {
+      var slug = decodeURIComponent(path.slice("#/propiedad/".length));
+      var found = DATA.some(function (p) { return p.slug === slug; });
+      if (!found) { location.replace("#/"); return; }
+      state.screen = "detail";
+      state.sel = slug;
+      render();
+      return;
+    }
+
+    if (path.indexOf("#/resultados") === 0) {
+      applyQuery(qs);
+      state.screen = "results";
+      startLoading();
+      return;
+    }
+
+    state.screen = "home";
+    render();
+    if (!forced) window.scrollTo(0, 0);
+  }
+
+  function startLoading() {
+    state.loading = true;
+    state.error = !Array.isArray(DATA) || DATA.length === 0;
+    render();
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(function () {
+      state.loading = false;
+      render();
+    }, 320);
+  }
+
+  /* ============================ vistas ============================ */
+
+  function photoHTML(p, index, sizeHint) {
+    var foto = (p.fotos || [])[index];
+    if (foto) return '<img class="photo" src="' + esc(foto.src) + '" alt="' + esc(foto.alt || (p.title + " en " + p.zona)) + '" loading="lazy" decoding="async">';
+    var n = index + 1, total = p.fotosCount || 1;
+    return '<div class="photo photo--ph" role="img" aria-label="Fotografía ' + n + ' de ' + total + ' · ' + esc(p.title + ", " + p.zona) + ' (pendiente de publicación)">' +
+      '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="9.5" r="1.3"/></svg>' +
+      '<span>' + esc(sizeHint || p.title) + '</span></div>';
+  }
+
+  function favIcon(on, size) {
+    var s = size || 20;
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" fill="' + (on ? "currentColor" : "none") + '" aria-hidden="true"><path d="M20.8 8.6c0 4.7-8.8 10-8.8 10s-8.8-5.3-8.8-10a5 5 0 0 1 8.8-3.1 5 5 0 0 1 8.8 3.1Z"/></svg>';
+  }
+
+  function cardHTML(p, variant) {
+    var fav = !!state.favs[p.slug];
+    var compact = variant === "compact";
+    return '' +
+      '<article class="card' + (compact ? " card--compact" : "") + (state.hover === p.slug ? " is-hovered" : "") + '" data-slug="' + esc(p.slug) + '">' +
+        '<div class="card__media">' + photoHTML(p, 0) +
+          '<p class="card__badge">' + esc(p.badge) + '</p>' +
+          (compact ? "" : '<p class="card__count">1/' + p.fotosCount + '</p>') +
+          '<button class="icon-btn fav" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "Quitar de favoritos" : "Guardar en favoritos") + ': ' + esc(p.title) + '">' + favIcon(fav) + '</button>' +
+        '</div>' +
+        '<div class="card__body">' +
+          '<h3 class="card__title"><a href="#/propiedad/' + esc(p.slug) + '" data-action="open" data-slug="' + esc(p.slug) + '">' + esc(p.title) + '</a></h3>' +
+          '<p class="card__zona">' + esc(p.zona) + '</p>' +
+          '<p class="card__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
+          (compact ? "" :
+            '<p class="card__meta">' + esc(areaLine(p) || "Superficie por confirmar") + '</p>' +
+            '<p class="card__meta">' + esc(roomsLine(p)) + '</p>') +
+        '</div>' +
+      '</article>';
+  }
+
+  function skeletonHTML(n) {
+    var out = "";
+    for (var i = 0; i < n; i++) {
+      out += '<div class="skeleton" aria-hidden="true">' +
+        '<div class="skeleton__media shimmer"></div>' +
+        '<div class="skeleton__body">' +
+          '<div class="skeleton__line skeleton__line--mid"></div>' +
+          '<div class="skeleton__line skeleton__line--short"></div>' +
+          '<div class="skeleton__line"></div>' +
+        '</div></div>';
+    }
+    return out;
+  }
+
+  function optionsHTML(list, selected) {
+    return list.map(function (o) {
+      var label = typeof o === "string" ? o : o.label;
+      var value = typeof o === "string" ? o : o.value;
+      return '<option value="' + esc(value) + '"' + (String(value) === String(selected) ? " selected" : "") + '>' + esc(label) + "</option>";
+    }).join("");
+  }
+
+  function maxOptions() { return state.op === "renta" ? CAT.maxRenta : CAT.maxVenta; }
+
+  /* ---------- Home ---------- */
+
+  function viewHome() {
+    var destacadas = DATA.filter(function (p) { return p.op === state.op; }).slice(0, 3);
+    return '' +
+    '<section class="container hero">' +
+      '<p class="eyebrow">Propiedades con potencial</p>' +
+      '<h1>Encuentra el espacio. Imagina lo que puede ser.</h1>' +
+      '<p class="hero__sub">Terrenos, casas para remodelar y propiedades en zonas consolidadas de la Ciudad de México.</p>' +
+
+      '<div class="tabs" role="tablist" aria-label="Operación">' +
+        '<button class="tab" role="tab" id="tab-venta" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
+        '<button class="tab" role="tab" id="tab-renta" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
+      '</div>' +
+
+      '<form class="searchbar" id="home-search" role="search">' +
+        '<div class="searchbar__field searchbar__field--wide">' +
+          '<label class="searchbar__label" for="q-home">¿Dónde buscas?</label>' +
+          '<input id="q-home" name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
+        '</div>' +
+        '<div class="searchbar__field">' +
+          '<label class="searchbar__label" for="tipo-home">Tipo de propiedad</label>' +
+          '<select id="tipo-home" name="tipo">' + optionsHTML(CAT.tipos, state.tipo) + '</select>' +
+        '</div>' +
+        '<div class="searchbar__field">' +
+          '<label class="searchbar__label" for="max-home">Precio máximo</label>' +
+          '<select id="max-home" name="max">' + optionsHTML(maxOptions(), state.max) + '</select>' +
+        '</div>' +
+        '<button class="searchbar__submit" type="submit">BUSCAR</button>' +
+      '</form>' +
+
+      '<div class="chiprow" aria-label="Búsquedas rápidas">' +
+        quick("Casas", { tipo: "Casas" }) +
+        quick("Terrenos", { tipo: "Terrenos" }) +
+        quick("Para remodelar", { remodelar: true, tipo: "Todos" }) +
+        quick("Departamentos", { tipo: "Departamentos" }) +
+        quick("Oportunidades", { tipo: "Todos", sort: "Mayor terreno" }) +
+      '</div>' +
+    '</section>' +
+
+    '<section class="container section">' +
+      '<hr class="rule">' +
+      '<div class="section__head">' +
+        '<h2>Selección con potencial</h2>' +
+        '<button class="btn btn--tertiary" data-action="search">Ver todas →</button>' +
+      '</div>' +
+      '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>' +
+    '</section>' +
+
+    '<section class="container">' +
+      '<hr class="rule" style="margin-top:48px">' +
+      '<div class="pillars">' +
+        pillar("01", "Superficie y frente", "Cada ficha publica superficie de terreno, construcción y frente para evaluar un proyecto.") +
+        pillar("02", "Estado real", "Las propiedades para remodelar se muestran como están, sin filtros que cambien su condición.") +
+        pillar("03", "Potencial explicado", "Posibilidades de intervención presentadas como posibilidades, sujetas a normativa.") +
+      '</div>' +
+    '</section>';
+  }
+
+  function quick(label, patch) {
+    return '<button class="chip" data-action="quick" data-patch=\'' + esc(JSON.stringify(patch)) + '\'>' + esc(label) + "</button>";
+  }
+  function pillar(n, title, text) {
+    return '<div class="pillar"><p class="pillar__num">' + n + '</p><h3>' + esc(title) + '</h3><p>' + esc(text) + "</p></div>";
+  }
+
+  /* ---------- Resultados ---------- */
+
+  function viewResults() {
+    var results = filtered(state);
+    var n = activeFilterCount(state);
+    var cs = chips(state);
+    var mapOn = state.view === "mapa";
+
+    var toolbar = '' +
+    '<div class="toolbar">' +
+      '<div class="container toolbar__inner">' +
+        '<div class="searchline">' +
+          '<div class="toolbar__desktop" role="tablist" aria-label="Operación">' +
+            '<button class="chip' + (state.op === "venta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
+            '<button class="chip' + (state.op === "renta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
+          '</div>' +
+          '<form class="searchline__input" id="results-search" role="search">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6F6D68" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/></svg>' +
+            '<label class="sr-only" for="q-results">Buscar por colonia, alcaldía o ciudad</label>' +
+            '<input id="q-results" name="q" type="search" enterkeyhint="search" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
+          '</form>' +
+          '<button class="chip filterbtn' + (n ? " is-on" : "") + '" data-action="filters-open" aria-haspopup="dialog">' +
+            '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>' +
+            'Filtros' + (n ? '<span class="filterbtn__count">' + n + "</span>" : "") +
+          '</button>' +
+        '</div>' +
+
+        (cs.length ? '<div class="chiprow" aria-label="Filtros activos">' +
+          cs.map(function (c) {
+            return '<button class="chip chip--removable" data-action="chip-clear" data-key="' + c.key + '" aria-label="Quitar filtro ' + esc(c.label) + '">' + esc(c.label) + ' ×</button>';
+          }).join("") +
+          '<button class="btn btn--tertiary" data-action="clear-all" style="text-decoration:underline;color:var(--text-secondary);font-size:13px">Limpiar filtros</button>' +
+        '</div>' : "") +
+
+        '<div class="resultline">' +
+          '<p class="resultline__count" aria-live="polite">' + esc(countLine(results)) + '</p>' +
+          '<div class="viewtoggle" role="group" aria-label="Vista de resultados">' +
+            '<button data-action="view" data-view="lista" aria-pressed="' + (!mapOn) + '">Lista</button>' +
+            '<button data-action="view" data-view="mapa" aria-pressed="' + mapOn + '">Mapa</button>' +
+          '</div>' +
+          '<label class="sortline">Ordenar' +
+            '<select id="sort" name="sort">' + optionsHTML(CAT.ordenes, state.sort) + '</select>' +
+          '</label>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+    var body;
+    if (state.error) {
+      body = '<div class="state"><h3>No pudimos cargar las propiedades.</h3><p>Revisa tu conexión e inténtalo otra vez.</p>' +
+        '<button class="btn btn--primary" data-action="retry">Intentar de nuevo</button></div>';
+    } else if (state.loading) {
+      body = '<div class="grid">' + skeletonHTML(6) + "</div>";
+    } else if (!results.length) {
+      body = '<div class="state"><h3>No encontramos propiedades con esos filtros.</h3>' +
+        '<p>Prueba ampliando la zona o el rango de precio.</p>' +
+        '<button class="btn btn--primary" data-action="filters-open">Modificar filtros</button></div>';
+    } else {
+      body = '<div class="grid">' + results.map(function (p) { return cardHTML(p); }).join("") + "</div>";
+    }
+
+    // En móvil el mapa reemplaza la lista; en desktop convive a la derecha (60/40).
+    var mapPane = mapOn && !state.loading && !state.error && results.length ? mapHTML(results) : "";
+    var listVisible = !mapOn || window.innerWidth >= 1024;
+
+    return toolbar +
+      '<div class="container results">' +
+        '<div class="results__layout' + (mapOn ? " has-map" : "") + '">' +
+          (listVisible ? "<div>" + body + "</div>" : "") +
+          mapPane +
+        '</div>' +
+      '</div>';
+  }
+
+  function countLine(results) {
+    var where = state.q.trim() ? " en " + state.q.trim() : " en Ciudad de México";
+    return results.length + (results.length === 1 ? " propiedad" : " propiedades") + where;
+  }
+
+  function mapHTML(results) {
+    var peek = state.peek && results.filter(function (p) { return p.slug === state.peek; })[0];
+    return '<div class="mapwrap"><div class="map">' +
+      '<div class="map__road-h"></div><div class="map__road-v"></div>' +
+      results.map(function (p) {
+        return '<button class="map__pin' + (state.hover === p.slug ? " is-on" : "") + '" style="left:' + p.x + "%;top:" + p.y + '%" ' +
+          'data-action="pin" data-slug="' + esc(p.slug) + '" aria-label="' + esc(p.title + ", " + p.zona + ", " + money(p.price, p.op)) + '">' +
+          esc(shortMoney(p.price, p.op)) + "</button>";
+      }).join("") +
+      '<p class="map__note">Mapa esquemático · prototipo</p>' +
+      (peek ? '<div class="map__peek">' + cardHTML(peek, "compact") + "</div>" : "") +
+    "</div></div>";
+  }
+
+  /* ---------- Detalle ---------- */
+
+  function viewDetail() {
+    var p = DATA.filter(function (x) { return x.slug === state.sel; })[0];
+    if (!p) return '<div class="container"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
+
+    var fav = !!state.favs[p.slug];
+    var total = Math.max(1, p.fotosCount || 1);
+    var slides = "";
+    for (var i = 0; i < total; i++) {
+      slides += '<div class="gallery__slide">' + photoHTML(p, i, i === 0 ? "Fachada o contexto · " + p.title : "Fotografía " + (i + 1) + " de " + total) + "</div>";
+    }
+
+    var specs = [
+      ["Operación", p.op === "renta" ? "Renta" : "Venta"],
+      ["Superficie de terreno", p.terreno ? p.terreno.toLocaleString("en-US") + " m²" : "—"],
+      ["Superficie construida", p.construido ? p.construido + " m²" : "—"],
+      ["Frente", p.frente],
+      ["Recámaras", p.rec || "—"],
+      ["Baños", p.ban || "—"],
+      ["Estacionamientos", p.autos || "—"],
+      ["Estado", p.remodelar ? "Para remodelar" : "Habitable / libre"]
+    ];
+
+    var similares = DATA.filter(function (x) { return x.slug !== p.slug && x.tipo === p.tipo && x.op === p.op; }).slice(0, 3);
+    if (!similares.length) similares = DATA.filter(function (x) { return x.slug !== p.slug && x.op === p.op; }).slice(0, 3);
+
+    return '' +
+    '<div class="container detail">' +
+      '<nav class="breadcrumb" aria-label="Ruta">' +
+        '<button data-action="home">Inicio</button><span aria-hidden="true">/</span>' +
+        '<button data-action="search">Resultados</button><span aria-hidden="true">/</span>' +
+        '<span class="breadcrumb__current" aria-current="page">' + esc(p.title) + '</span>' +
+      '</nav>' +
+
+      '<div class="gallery" id="gallery">' +
+        '<div class="gallery__track" id="gallery-track" tabindex="0" role="region" aria-label="Galería de ' + esc(p.title) + ' — desliza para ver más">' + slides + '</div>' +
+        '<p class="gallery__counter" id="gallery-counter" aria-live="polite">1 / ' + total + '</p>' +
+        '<div class="gallery__side" aria-hidden="true">' +
+          '<div>' + photoHTML(p, 1, "Fachada o contexto") + '</div>' +
+          '<div>' + photoHTML(p, 2, "Interior / estado actual") + '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="detail__head">' +
+        '<div>' +
+          '<p class="eyebrow" style="letter-spacing:.14em">' + esc(p.badge) + '</p>' +
+          '<h1>' + esc(p.title) + '</h1>' +
+          '<p class="detail__zona">' + esc(p.zona) + '</p>' +
+        '</div>' +
+        '<div class="detail__actions">' +
+          '<button class="btn btn--quiet" data-action="share">Compartir</button>' +
+          '<button class="btn btn--quiet" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '">' + favIcon(fav, 18) + (fav ? "Guardada" : "Guardar") + '</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="detail__layout">' +
+        '<div>' +
+          '<p class="detail__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
+          '<p class="detail__pricemeta">' + esc([areaLine(p), roomsLine(p)].filter(Boolean).join(" · ")) + '</p>' +
+          '<hr class="rule" style="margin:32px 0">' +
+
+          '<h2 style="margin-top:0">Descripción</h2>' +
+          '<p class="body">' + esc(p.desc) + '</p>' +
+
+          '<div class="potential">' +
+            '<h2>¿Por qué tiene potencial?</h2>' +
+            '<p class="body">' + esc(p.potencial) + '</p>' +
+            '<p class="potential__note">Las posibilidades arquitectónicas se presentan como posibilidades, sujetas a normativa y validación técnica.</p>' +
+          '</div>' +
+
+          '<h2>Terreno y construcción</h2>' +
+          '<dl class="specs">' + specs.map(function (s) {
+            return '<div class="spec"><dt>' + esc(s[0]) + "</dt><dd>" + esc(s[1]) + "</dd></div>";
+          }).join("") + '</dl>' +
+
+          '<h2>Ubicación</h2>' +
+          '<div class="mapwrap" style="height:280px;min-height:0"><div class="map">' +
+            '<div class="map__road-h" style="top:46%"></div>' +
+            '<button class="map__pin is-on" style="left:50%;top:50%;transform:translate(-50%,-50%)" data-action="noop">' + esc(p.zona) + '</button>' +
+            '<p class="map__note">Mapa esquemático · prototipo</p>' +
+          '</div></div>' +
+        '</div>' +
+
+        '<aside class="aside">' +
+          '<p class="aside__label">ASESOR</p>' +
+          '<p class="aside__name">Espacios Lazza · ' + esc(p.zona.split(",")[0]) + '</p>' +
+          '<button class="btn btn--primary btn--lg btn--block" data-action="contact">Contactar</button>' +
+          '<button class="btn btn--secondary btn--lg btn--block" data-action="visita">Agendar visita</button>' +
+          '<button class="btn btn--tertiary btn--block" data-action="save-search">Guardar búsqueda</button>' +
+        '</aside>' +
+      '</div>' +
+
+      '<hr class="rule" style="margin:64px 0 0">' +
+      '<h2>Propiedades similares</h2>' +
+      '<div class="scroller">' + similares.map(function (s) { return cardHTML(s, "compact"); }).join("") + '</div>' +
+    '</div>' +
+
+    '<div class="actionbar">' +
+      '<div class="actionbar__price"><span>' + (p.op === "renta" ? "Renta mensual" : "Precio") + '</span>' +
+        '<strong aria-hidden="true">' + esc(shortMoney(p.price, p.op)) + ' MXN</strong>' +
+        '<span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></div>' +
+      '<button class="btn btn--primary" data-action="contact">Contactar</button>' +
+    '</div>';
+  }
+
+  /* ---------- Navegación (header y drawer) ---------- */
+
+  function navItems() {
+    return [
+      { label: "Comprar", on: state.screen === "results" && state.op === "venta", patch: { op: "venta", tipo: "Todos", remodelar: false } },
+      { label: "Rentar", on: state.op === "renta", patch: { op: "renta", tipo: "Todos", remodelar: false } },
+      { label: "Terrenos", on: state.tipo === "Terrenos", patch: { tipo: "Terrenos" } },
+      { label: "Para remodelar", on: state.remodelar, patch: { remodelar: true, tipo: "Todos" } },
+      { label: "Zonas", on: false, patch: { q: "" } }
+    ];
+  }
+
+  function renderNav() {
+    var items = navItems();
+    document.getElementById("nav-desktop").innerHTML = items.map(function (n) {
+      return '<button class="navlink' + (n.on ? " is-active" : "") + '" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) + "</button>";
+    }).join("");
+    document.getElementById("nav-mobile").innerHTML = items.map(function (n) {
+      return '<button class="drawer__link" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) +
+        (n.on ? '<span class="sr-only"> (activo)</span>' : "") + "</button>";
+    }).join("") +
+      '<button class="drawer__link" data-action="favs">Favoritos</button>';
+  }
+
+  /* ============================ render ============================ */
+
+  function render() {
+    var html = state.screen === "results" ? viewResults()
+             : state.screen === "detail" ? viewDetail()
+             : viewHome();
+    main.innerHTML = html;
+    renderNav();
+    document.body.classList.toggle("has-actionbar", state.screen === "detail");
+    document.title = state.screen === "detail"
+      ? (DATA.filter(function (p) { return p.slug === state.sel; })[0] || {}).title + " · Espacios Lazza"
+      : state.screen === "results"
+        ? "Resultados · Espacios Lazza"
+        : "Espacios Lazza · Propiedades con potencial";
+    bindViewEvents();
+  }
+
+  function bindViewEvents() {
+    var homeForm = document.getElementById("home-search");
+    if (homeForm) {
+      homeForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        state.q = homeForm.q.value;
+        state.tipo = homeForm.tipo.value;
+        state.max = Number(homeForm.max.value) || 0;
+        go("results");
+      });
+      homeForm.tipo.addEventListener("change", function () { state.tipo = this.value; });
+      homeForm.max.addEventListener("change", function () { state.max = Number(this.value) || 0; });
+    }
+
+    var resultsForm = document.getElementById("results-search");
+    if (resultsForm) {
+      resultsForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        state.q = resultsForm.q.value;
+        resultsForm.q.blur();
+        go("results", null, { replace: true });
+      });
+    }
+
+    var sort = document.getElementById("sort");
+    if (sort) sort.addEventListener("change", function () {
+      state.sort = this.value;
+      go("results", null, { replace: true });
+    });
+
+    var track = document.getElementById("gallery-track");
+    if (track) {
+      var counter = document.getElementById("gallery-counter");
+      var total = track.children.length;
+      track.addEventListener("scroll", function () {
+        var i = Math.round(track.scrollLeft / track.clientWidth) + 1;
+        counter.textContent = Math.min(Math.max(i, 1), total) + " / " + total;
+      }, { passive: true });
+    }
+  }
+
+  /* ============================ drawer ============================ */
+
+  function openDrawer() {
+    lastFocus = document.activeElement;
+    drawer.hidden = false; overlay.hidden = false;
+    requestAnimationFrame(function () {
+      drawer.classList.add("is-open");
+      overlay.classList.add("is-open");
+    });
+    document.body.classList.add("is-locked");
+    setExpanded(true);
+    focusFirst(drawer);
+  }
+  function closeDrawer(silent) {
+    if (drawer.hidden) return;
+    drawer.classList.remove("is-open");
+    overlay.classList.remove("is-open");
+    document.body.classList.remove("is-locked");
+    setExpanded(false);
+    setTimeout(function () { drawer.hidden = true; if (sheet.hidden) overlay.hidden = true; }, 240);
+    if (!silent && lastFocus) lastFocus.focus();
+  }
+  function setExpanded(v) {
+    var btn = document.querySelector('[data-action="menu-open"]');
+    if (btn) btn.setAttribute("aria-expanded", String(v));
+  }
+
+  /* ============================ bottom sheet de filtros ============================ */
+
+  function optionChips(name, value, opts) {
+    return '<div class="optionrow" role="group" aria-label="' + esc(name) + '">' + opts.map(function (o) {
+      return '<button type="button" class="chip' + (Number(value) === o.v ? " is-on" : "") + '" data-draft="' + esc(name) + '" data-value="' + o.v + '" aria-pressed="' + (Number(value) === o.v) + '">' + esc(o.l) + "</button>";
+    }).join("") + "</div>";
+  }
+
+  function sheetHTML() {
+    var count = filtered(draft).length;
+    var priceError = draft.min && draft.max && draft.max < draft.min;
+    var rooms = [{ v: 0, l: "Indistinto" }, { v: 1, l: "1+" }, { v: 2, l: "2+" }, { v: 3, l: "3+" }, { v: 4, l: "4+" }];
+
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">Filtros</h2>' +
+      '<button class="icon-btn" data-action="filters-close" aria-label="Cerrar filtros">' +
+        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
+      '</button>' +
+    '</div>' +
+
+    '<div class="sheet__body">' +
+      '<fieldset class="fieldset">' +
+        '<legend>Operación</legend>' +
+        '<div class="optionrow">' +
+          '<button type="button" class="chip' + (draft.op === "venta" ? " is-on" : "") + '" data-draft="op" data-value="venta" aria-pressed="' + (draft.op === "venta") + '">Comprar</button>' +
+          '<button type="button" class="chip' + (draft.op === "renta" ? " is-on" : "") + '" data-draft="op" data-value="renta" aria-pressed="' + (draft.op === "renta") + '">Rentar</button>' +
+        '</div>' +
+      '</fieldset>' +
+
+      '<fieldset class="fieldset">' +
+        '<legend>Tipo de propiedad</legend>' +
+        '<div class="field">' +
+          '<label class="sr-only" for="f-tipo">Tipo de propiedad</label>' +
+          '<select id="f-tipo" data-draft="tipo">' + optionsHTML(CAT.tipos, draft.tipo) + '</select>' +
+        '</div>' +
+        '<div class="switch" style="margin-top:12px">' +
+          '<label for="f-remodelar">Solo propiedades para remodelar</label>' +
+          '<input type="checkbox" id="f-remodelar" data-draft="remodelar"' + (draft.remodelar ? " checked" : "") + '>' +
+        '</div>' +
+      '</fieldset>' +
+
+      '<fieldset class="fieldset' + (priceError ? " field--error" : "") + '">' +
+        '<legend>' + (draft.op === "renta" ? "Renta mensual (MXN)" : "Precio (MXN)") + '</legend>' +
+        '<div class="pair">' +
+          '<div class="field"><label for="f-min">Mínimo</label>' +
+            '<input type="text" inputmode="numeric" id="f-min" data-draft="min" value="' + (draft.min ? draft.min.toLocaleString("en-US") : "") + '" placeholder="Sin mínimo"></div>' +
+          '<div class="field' + (priceError ? " field--error" : "") + '"><label for="f-max">Máximo</label>' +
+            '<input type="text" inputmode="numeric" id="f-max" data-draft="max" value="' + (draft.max ? draft.max.toLocaleString("en-US") : "") + '" placeholder="Sin máximo"' +
+            (priceError ? ' aria-invalid="true" aria-describedby="f-max-error"' : "") + '></div>' +
+        '</div>' +
+        (priceError ? '<p class="field__error" id="f-max-error"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>El precio máximo debe ser mayor al mínimo.</p>' : "") +
+      '</fieldset>' +
+
+      '<fieldset class="fieldset">' +
+        '<legend>Superficie</legend>' +
+        '<div class="pair">' +
+          '<div class="field"><label for="f-terreno">Terreno mínimo (m²)</label>' +
+            '<input type="text" inputmode="numeric" id="f-terreno" data-draft="terrenoMin" value="' + (draft.terrenoMin || "") + '" placeholder="Indistinto"></div>' +
+          '<div class="field"><label for="f-const">Construido mínimo (m²)</label>' +
+            '<input type="text" inputmode="numeric" id="f-const" data-draft="constMin" value="' + (draft.constMin || "") + '" placeholder="Indistinto"></div>' +
+        '</div>' +
+      '</fieldset>' +
+
+      '<fieldset class="fieldset"><legend>Recámaras</legend>' + optionChips("rec", draft.rec, rooms) + '</fieldset>' +
+      '<fieldset class="fieldset"><legend>Baños</legend>' + optionChips("ban", draft.ban, rooms) + '</fieldset>' +
+      '<fieldset class="fieldset"><legend>Estacionamientos</legend>' + optionChips("autos", draft.autos, rooms) + '</fieldset>' +
+    '</div>' +
+
+    '<div class="sheet__foot">' +
+      '<button class="btn btn--tertiary" data-action="filters-clear">Limpiar</button>' +
+      '<button class="btn btn--primary btn--lg" data-action="filters-apply"' + (priceError ? " disabled" : "") + '>' +
+        (count === 1 ? "Ver 1 propiedad" : "Ver " + count + " propiedades") + '</button>' +
+    '</div>';
+  }
+
+  function openSheet() {
+    lastFocus = document.activeElement;
+    draft = Object.assign({}, state);
+    sheet.innerHTML = sheetHTML();
+    sheet.hidden = false; overlay.hidden = false;
+    requestAnimationFrame(function () {
+      sheet.classList.add("is-open");
+      overlay.classList.add("is-open");
+    });
+    document.body.classList.add("is-locked");
+    focusFirst(sheet);
+  }
+  function refreshSheet() {
+    var scroll = sheet.querySelector(".sheet__body");
+    var top = scroll ? scroll.scrollTop : 0;
+    var activeId = document.activeElement && document.activeElement.id;
+    var selStart = document.activeElement && document.activeElement.selectionStart;
+    sheet.innerHTML = sheetHTML();
+    var body = sheet.querySelector(".sheet__body");
+    if (body) body.scrollTop = top;
+    if (activeId) {
+      var el = document.getElementById(activeId);
+      if (el) {
+        el.focus();
+        if (selStart != null && el.setSelectionRange) {
+          try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+        }
+      }
+    }
+  }
+  function closeSheet(silent) {
+    if (sheet.hidden) return;
+    sheet.classList.remove("is-open");
+    overlay.classList.remove("is-open");
+    document.body.classList.remove("is-locked");
+    setTimeout(function () { sheet.hidden = true; if (drawer.hidden) overlay.hidden = true; }, 240);
+    draft = null;
+    if (!silent && lastFocus) lastFocus.focus();
+  }
+
+  function focusFirst(root) {
+    var el = root.querySelector("button, input, select, a[href], [tabindex]:not([tabindex='-1'])");
+    if (el) el.focus();
+  }
+
+  function trapFocus(e, root) {
+    if (e.key !== "Tab") return;
+    var els = root.querySelectorAll("button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]");
+    if (!els.length) return;
+    var first = els[0], last = els[els.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  /* ============================ eventos globales ============================ */
+
+  function numFrom(v) { return Number(String(v).replace(/[^0-9]/g, "")) || 0; }
+
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-action], [data-draft], .card");
+    if (!t) return;
+
+    // Botones dentro del bottom sheet que editan el borrador
+    if (t.hasAttribute("data-draft") && t.tagName === "BUTTON") {
+      var key = t.getAttribute("data-draft");
+      var val = t.getAttribute("data-value");
+      draft[key] = key === "op" ? val : Number(val);
+      if (key === "op") { draft.min = 0; draft.max = 0; }
+      refreshSheet();
+      return;
+    }
+
+    var action = t.getAttribute("data-action");
+
+    // Card completa clicable, pero el corazón conserva acción propia.
+    if (!action && t.classList.contains("card")) {
+      go("detail", { sel: t.getAttribute("data-slug") });
+      return;
+    }
+
+    switch (action) {
+      case "home": e.preventDefault(); go("home"); break;
+      case "menu-open": openDrawer(); break;
+      case "menu-close": closeDrawer(); break;
+      case "favs": {
+        var n = Object.keys(state.favs).length;
+        toast(n === 0 ? "Aún no guardas propiedades en Favoritos." : n + (n === 1 ? " propiedad guardada en Favoritos." : " propiedades en Favoritos."));
+        closeDrawer();
+        break;
+      }
+      case "publicar": toast("Publicar propiedad estará disponible en la siguiente fase."); closeDrawer(); break;
+      case "cuenta": toast("El acceso a Cuenta estará disponible en la siguiente fase."); closeDrawer(); break;
+      case "set-op":
+        state.op = t.getAttribute("data-op");
+        state.max = 0; state.min = 0;
+        if (state.screen === "results") go("results", null, { replace: true }); else render();
+        break;
+      case "search": e.preventDefault(); go("results"); break;
+      case "quick": {
+        var patch = JSON.parse(t.getAttribute("data-patch"));
+        closeDrawer(true);
+        go("results", patch);
+        break;
+      }
+      case "open": e.preventDefault(); go("detail", { sel: t.getAttribute("data-slug") }); break;
+      case "fav": {
+        e.preventDefault(); e.stopPropagation();
+        var slug = t.getAttribute("data-slug");
+        var on = !state.favs[slug];
+        if (on) state.favs[slug] = true; else delete state.favs[slug];
+        saveFavs();
+        toast(on ? "Propiedad guardada en Favoritos." : "Propiedad quitada de Favoritos.");
+        render();
+        break;
+      }
+      case "view":
+        state.view = t.getAttribute("data-view");
+        state.peek = null;
+        go("results", null, { replace: true });
+        break;
+      case "pin":
+        state.peek = t.getAttribute("data-slug");
+        state.hover = state.peek;
+        if (window.innerWidth >= 1024) { go("detail", { sel: state.peek }); }
+        else render();
+        break;
+      case "chip-clear": {
+        var k = t.getAttribute("data-key");
+        if (k === "precio") { state.min = 0; state.max = 0; }
+        else if (k === "q") state.q = "";
+        else if (k === "tipo") state.tipo = "Todos";
+        else if (k === "remodelar") state.remodelar = false;
+        else state[k] = 0;
+        go("results", null, { replace: true });
+        break;
+      }
+      case "clear-all":
+        Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort, view: state.view });
+        go("results", null, { replace: true });
+        break;
+      case "filters-open": openSheet(); break;
+      case "filters-close": closeSheet(); break;
+      case "filters-clear":
+        draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, view: draft.view, q: draft.q });
+        refreshSheet();
+        break;
+      case "filters-apply": {
+        Object.assign(state, draft);
+        closeSheet();
+        go("results", null, { replace: true });
+        break;
+      }
+      case "retry": startLoading(); break;
+      case "share": {
+        var url = location.href;
+        var title = document.title;
+        if (navigator.share) {
+          navigator.share({ title: title, url: url }).catch(function () {});
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado."); });
+        } else {
+          toast(url);
+        }
+        break;
+      }
+      case "contact": toast("Te contactaremos para dar seguimiento a esta propiedad."); break;
+      case "visita": toast("Agenda de visitas disponible en la siguiente fase."); break;
+      case "save-search": toast("Búsqueda guardada."); break;
+      case "noop": break;
+    }
+  });
+
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!el.hasAttribute || !el.hasAttribute("data-draft") || !draft) return;
+    var key = el.getAttribute("data-draft");
+    if (el.type === "checkbox") { draft[key] = el.checked; refreshSheet(); return; }
+    if (el.tagName === "SELECT") { draft[key] = el.value; refreshSheet(); return; }
+    draft[key] = numFrom(el.value);
+    // Actualiza el conteo del CTA sin reconstruir el campo que se está escribiendo.
+    var cta = sheet.querySelector('[data-action="filters-apply"]');
+    var bad = draft.min && draft.max && draft.max < draft.min;
+    if (cta) {
+      var c = filtered(draft).length;
+      cta.textContent = c === 1 ? "Ver 1 propiedad" : "Ver " + c + " propiedades";
+      cta.disabled = !!bad;
+    }
+    var hasError = !!sheet.querySelector("#f-max-error");
+    if (!!bad !== hasError) refreshSheet();
+  });
+
+  document.addEventListener("change", function (e) {
+    var el = e.target;
+    if (el.hasAttribute && el.hasAttribute("data-draft") && draft && el.tagName === "SELECT") {
+      draft[el.getAttribute("data-draft")] = el.value;
+      refreshSheet();
+    }
+  });
+
+  document.addEventListener("mouseenter", function (e) {
+    if (window.innerWidth < 1024) return;
+    var card = e.target.closest && e.target.closest("[data-slug]");
+    if (!card || state.screen !== "results" || state.view !== "mapa") return;
+    var slug = card.getAttribute("data-slug");
+    if (state.hover === slug) return;
+    state.hover = slug;
+    var pins = document.querySelectorAll(".map__pin");
+    for (var i = 0; i < pins.length; i++) {
+      pins[i].classList.toggle("is-on", pins[i].getAttribute("data-slug") === slug);
+    }
+  }, true);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      if (!sheet.hidden) { closeSheet(); return; }
+      if (!drawer.hidden) { closeDrawer(); return; }
+    }
+    if (!sheet.hidden) trapFocus(e, sheet);
+    else if (!drawer.hidden) trapFocus(e, drawer);
+  });
+
+  overlay.addEventListener("click", function () {
+    if (!sheet.hidden) closeSheet();
+    else closeDrawer();
+  });
+
+  window.addEventListener("hashchange", function () {
+    route();
+    window.scrollTo(0, 0);
+    main.focus({ preventScroll: true });
+  });
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    if (state.screen !== "results" || state.view !== "mapa") return;
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 150);
+  });
+
+  // Arranque
+  if (!location.hash) history.replaceState(null, "", "#/");
+  route(true);
+})();
