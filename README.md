@@ -29,8 +29,8 @@ No requiere Node ni compilación. Se publica tal cual en HostGator (FTP) o GitHu
 | Ruta | Pantalla |
 |------|----------|
 | `#/` | Home: hero, tabs Comprar/Rentar, buscador, accesos rápidos, selección y pilares |
-| `#/resultados?...` | Resultados: toolbar sticky, chips activos, lista o mapa, estados vacío/carga/error |
-| `#/propiedad/<slug>` | Ficha: galería, precio, descripción, ¿por qué tiene potencial?, especificaciones, ubicación, similares |
+| `#/resultados?...` | Resultados: toolbar sticky, chips activos, lista, estados vacío/carga/error |
+| `#/propiedad/<slug>` | Ficha: galería, precio, descripción, ¿por qué tiene potencial?, especificaciones, ubicación (enlace a Google Maps), similares |
 
 Los filtros viven en la URL (`#/resultados?tipo=Terrenos&max=15000000`), así que una
 búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre pantallas.
@@ -48,8 +48,9 @@ búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre
   En tablet/desktop el mismo componente se centra como modal.
 - **Cards verticales full-width** en móvil → 2 columnas a 640 px → 3 a 1024 px. Toda la
   card es un objetivo táctil (link estirado) y el corazón conserva acción propia.
-- **Mapa**: en móvil reemplaza a la lista y muestra una tarjeta asomada al tocar un pin;
-  en desktop convive con los resultados en 60/40.
+- **Ubicación por enlace**: la ficha no incrusta un mapa; muestra la zona y un botón
+  *Ver en Google Maps* que abre la app nativa en el teléfono. Si la propiedad trae
+  `maps` en `js/data.js` se usa ese enlace; si no, se busca la zona.
 - **Ficha**: galería deslizable con contador, y barra de acción fija abajo con precio
   corto + *Contactar*. En desktop la galería es 2/3 + dos secundarias y el asesor queda
   en una columna sticky.
@@ -80,10 +81,19 @@ fotos: [
 
 Ratios: card 4:3, galería 4:3, hero 16:9.
 
+## Ubicación
+
+Cada ficha enlaza a Google Maps en pestaña nueva. Por omisión el enlace busca la zona
+(`Condesa, Cuauhtémoc, Ciudad de México`). Para un punto exacto, agrega el enlace corto
+de Google Maps a la propiedad:
+
+```js
+maps: "https://maps.app.goo.gl/xxxxxxxx"
+```
+
 ## Pendiente para producción
 
 - Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
-- Mapa real (Mapbox/Google) en lugar del esquemático del prototipo.
 - Formularios reales de *Contactar*, *Agendar visita* y *Publicar propiedad*
   (hoy responden con un toast).
 - Cuenta, favoritos sincronizados (hoy viven en `localStorage`) y búsquedas guardadas.

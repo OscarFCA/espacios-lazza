@@ -16,12 +16,12 @@
   var DEFAULTS = {
     op: "venta", q: "", tipo: "Todos", remodelar: false,
     min: 0, max: 0, terrenoMin: 0, constMin: 0, rec: 0, ban: 0, autos: 0,
-    sort: "Relevancia", view: "lista"
+    sort: "Relevancia"
   };
 
   var state = Object.assign({}, DEFAULTS, {
-    screen: "home", sel: null, favs: loadFavs(), hover: null,
-    loading: false, error: false, peek: null
+    screen: "home", sel: null, favs: loadFavs(),
+    loading: false, error: false
   });
 
   var draft = null;          // copia de filtros mientras el bottom sheet está abierto
@@ -58,6 +58,12 @@
     // Legible por lector de pantalla: evita que "$12,800,000" se lea como dígitos sueltos.
     if (op === "renta") return Number(n).toLocaleString("es-MX") + " pesos mexicanos por mes";
     return Number(n).toLocaleString("es-MX") + " pesos mexicanos";
+  }
+
+  function mapsUrl(p) {
+    if (p.maps) return p.maps;
+    return "https://www.google.com/maps/search/?api=1&query=" +
+      encodeURIComponent(p.zona + ", Ciudad de México");
   }
 
   function loadFavs() {
@@ -136,7 +142,7 @@
 
   /* ============================ ruteo ============================ */
 
-  var QUERY_KEYS = ["op", "q", "tipo", "remodelar", "min", "max", "terrenoMin", "constMin", "rec", "ban", "autos", "sort", "view"];
+  var QUERY_KEYS = ["op", "q", "tipo", "remodelar", "min", "max", "terrenoMin", "constMin", "rec", "ban", "autos", "sort"];
 
   function toQuery() {
     var qs = [];
@@ -240,7 +246,7 @@
     var fav = !!state.favs[p.slug];
     var compact = variant === "compact";
     return '' +
-      '<article class="card' + (compact ? " card--compact" : "") + (state.hover === p.slug ? " is-hovered" : "") + '" data-slug="' + esc(p.slug) + '">' +
+      '<article class="card' + (compact ? " card--compact" : "") + '" data-slug="' + esc(p.slug) + '">' +
         '<div class="card__media">' + photoHTML(p, 0) +
           '<p class="card__badge">' + esc(p.badge) + '</p>' +
           (compact ? "" : '<p class="card__count">1/' + p.fotosCount + '</p>') +
@@ -353,7 +359,6 @@
     var results = filtered(state);
     var n = activeFilterCount(state);
     var cs = chips(state);
-    var mapOn = state.view === "mapa";
 
     var toolbar = '' +
     '<div class="toolbar">' +
@@ -383,10 +388,6 @@
 
         '<div class="resultline">' +
           '<p class="resultline__count" aria-live="polite">' + esc(countLine(results)) + '</p>' +
-          '<div class="viewtoggle" role="group" aria-label="Vista de resultados">' +
-            '<button data-action="view" data-view="lista" aria-pressed="' + (!mapOn) + '">Lista</button>' +
-            '<button data-action="view" data-view="mapa" aria-pressed="' + mapOn + '">Mapa</button>' +
-          '</div>' +
           '<label class="sortline">Ordenar' +
             '<select id="sort" name="sort">' + optionsHTML(CAT.ordenes, state.sort) + '</select>' +
           '</label>' +
@@ -408,36 +409,12 @@
       body = '<div class="grid">' + results.map(function (p) { return cardHTML(p); }).join("") + "</div>";
     }
 
-    // En móvil el mapa reemplaza la lista; en desktop convive a la derecha (60/40).
-    var mapPane = mapOn && !state.loading && !state.error && results.length ? mapHTML(results) : "";
-    var listVisible = !mapOn || window.innerWidth >= 1024;
-
-    return toolbar +
-      '<div class="container results">' +
-        '<div class="results__layout' + (mapOn ? " has-map" : "") + '">' +
-          (listVisible ? "<div>" + body + "</div>" : "") +
-          mapPane +
-        '</div>' +
-      '</div>';
+    return toolbar + '<div class="container results">' + body + '</div>';
   }
 
   function countLine(results) {
     var where = state.q.trim() ? " en " + state.q.trim() : " en Ciudad de México";
     return results.length + (results.length === 1 ? " propiedad" : " propiedades") + where;
-  }
-
-  function mapHTML(results) {
-    var peek = state.peek && results.filter(function (p) { return p.slug === state.peek; })[0];
-    return '<div class="mapwrap"><div class="map">' +
-      '<div class="map__road-h"></div><div class="map__road-v"></div>' +
-      results.map(function (p) {
-        return '<button class="map__pin' + (state.hover === p.slug ? " is-on" : "") + '" style="left:' + p.x + "%;top:" + p.y + '%" ' +
-          'data-action="pin" data-slug="' + esc(p.slug) + '" aria-label="' + esc(p.title + ", " + p.zona + ", " + money(p.price, p.op)) + '">' +
-          esc(shortMoney(p.price, p.op)) + "</button>";
-      }).join("") +
-      '<p class="map__note">Mapa esquemático · prototipo</p>' +
-      (peek ? '<div class="map__peek">' + cardHTML(peek, "compact") + "</div>" : "") +
-    "</div></div>";
   }
 
   /* ---------- Detalle ---------- */
@@ -517,11 +494,14 @@
           }).join("") + '</dl>' +
 
           '<h2>Ubicación</h2>' +
-          '<div class="mapwrap" style="height:280px;min-height:0"><div class="map">' +
-            '<div class="map__road-h" style="top:46%"></div>' +
-            '<button class="map__pin is-on" style="left:50%;top:50%;transform:translate(-50%,-50%)" data-action="noop">' + esc(p.zona) + '</button>' +
-            '<p class="map__note">Mapa esquemático · prototipo</p>' +
-          '</div></div>' +
+          '<div class="location">' +
+            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/></svg>' +
+            '<p class="location__zona">' + esc(p.zona) + '</p>' +
+            '<a class="btn btn--secondary" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener noreferrer">' +
+              'Ver en Google Maps<span class="sr-only"> (se abre en una pestaña nueva)</span>' +
+              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V7.5A1.5 1.5 0 0 1 6 6h4"/></svg>' +
+            '</a>' +
+          '</div>' +
         '</div>' +
 
         '<aside class="aside">' +
@@ -846,17 +826,6 @@
         render();
         break;
       }
-      case "view":
-        state.view = t.getAttribute("data-view");
-        state.peek = null;
-        go("results", null, { replace: true });
-        break;
-      case "pin":
-        state.peek = t.getAttribute("data-slug");
-        state.hover = state.peek;
-        if (window.innerWidth >= 1024) { go("detail", { sel: state.peek }); }
-        else render();
-        break;
       case "chip-clear": {
         var k = t.getAttribute("data-key");
         if (k === "precio") { state.min = 0; state.max = 0; }
@@ -868,13 +837,13 @@
         break;
       }
       case "clear-all":
-        Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort, view: state.view });
+        Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort });
         go("results", null, { replace: true });
         break;
       case "filters-open": openSheet(); break;
       case "filters-close": closeSheet(); break;
       case "filters-clear":
-        draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, view: draft.view, q: draft.q });
+        draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, q: draft.q });
         refreshSheet();
         break;
       case "filters-apply": {
@@ -899,7 +868,6 @@
       case "contact": toast("Te contactaremos para dar seguimiento a esta propiedad."); break;
       case "visita": toast("Agenda de visitas disponible en la siguiente fase."); break;
       case "save-search": toast("Búsqueda guardada."); break;
-      case "noop": break;
     }
   });
 
@@ -930,19 +898,6 @@
     }
   });
 
-  document.addEventListener("mouseenter", function (e) {
-    if (window.innerWidth < 1024) return;
-    var card = e.target.closest && e.target.closest("[data-slug]");
-    if (!card || state.screen !== "results" || state.view !== "mapa") return;
-    var slug = card.getAttribute("data-slug");
-    if (state.hover === slug) return;
-    state.hover = slug;
-    var pins = document.querySelectorAll(".map__pin");
-    for (var i = 0; i < pins.length; i++) {
-      pins[i].classList.toggle("is-on", pins[i].getAttribute("data-slug") === slug);
-    }
-  }, true);
-
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       if (!sheet.hidden) { closeSheet(); return; }
@@ -961,13 +916,6 @@
     route();
     window.scrollTo(0, 0);
     main.focus({ preventScroll: true });
-  });
-
-  var resizeTimer = null;
-  window.addEventListener("resize", function () {
-    if (state.screen !== "results" || state.view !== "mapa") return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(render, 150);
   });
 
   // Arranque

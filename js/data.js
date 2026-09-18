@@ -1,6 +1,8 @@
 /* Espacios Lazza — Catálogo de propiedades (prototipo).
  *
  * Para publicar fotografía real: agrega `fotos: [{ src, alt }, ...]` a la propiedad.
+ * Para apuntar la ubicación a un punto exacto, agrega `maps: "https://maps.app.goo.gl/..."`;
+ * sin ese campo el enlace busca la zona de la ficha en Google Maps.
  * Si `fotos` está vacío se muestra un placeholder honesto, nunca una imagen
  * que altere el estado percibido del inmueble (Design System §9).
  */
