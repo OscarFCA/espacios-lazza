@@ -636,6 +636,13 @@
   }
 
   function renderNav() {
+    var u = S.sesion();
+    [document.getElementById("cta-cuenta"), document.getElementById("cta-cuenta-movil")].forEach(function (b) {
+      if (!b) return;
+      b.textContent = u ? u.nombre.split(" ")[0] : "Entrar";
+      b.setAttribute("aria-label", u ? "Tu cuenta: " + u.nombre : "Entrar o crear tu cuenta");
+    });
+
     var items = navItems();
     var desktop = items.map(function (n) {
       return '<button class="navlink' + (n.on ? " is-active" : "") + '" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) + "</button>";
@@ -926,11 +933,12 @@
     };
     return '' +
     '<div class="sheet__head">' +
-      '<h2 id="sheet-title">Crea tu cuenta</h2>' +
+      '<h2 id="sheet-title">Entra o crea tu cuenta</h2>' +
       '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
     '</div>' +
     '<div class="sheet__body">' +
       '<p class="lead">' + esc(contexto || "Guarda propiedades y compártelas desde cualquier pantalla.") + '</p>' +
+      '<p class="small" style="color:var(--text-secondary);margin-top:8px">Si ya tienes cuenta, usa el mismo correo y continúas donde te quedaste.</p>' +
       '<form id="registro-form" style="display:grid;gap:16px;margin-top:20px">' +
         campo("rg-nombre", "nombre", "Nombre completo", "text", 'autocomplete="name" required') +
         campo("rg-correo", "correo", "Correo", "email", 'autocomplete="email" inputmode="email" required') +
@@ -940,7 +948,7 @@
     '</div>' +
     '<div class="sheet__foot">' +
       '<button class="btn btn--link" data-action="sheet-close">Ahora no</button>' +
-      '<button class="btn btn--primary" data-action="registro-submit">Crear cuenta</button>' +
+      '<button class="btn btn--primary" data-action="registro-submit">Continuar</button>' +
     '</div>';
   }
 
@@ -963,7 +971,8 @@
     render();
     // Si había una acción pendiente, ella da el aviso: así no se pisan dos toasts.
     if (pend) pend();
-    else toast("Cuenta creada. Bienvenida, " + r.usuario.nombre.split(" ")[0] + ".");
+    // Saludo neutro: el registro no pregunta género y no hay por qué suponerlo.
+    else toast("Listo, " + r.usuario.nombre.split(" ")[0] + ". Tu cuenta quedó creada.");
   }
 
   function cuentaHTML() {
@@ -1028,7 +1037,7 @@
       case "favs":
         closeDrawer(true);
         if (!S.sesion()) {
-          pedirRegistro("Crea tu cuenta para conservar tus propiedades guardadas.", function () { go("saved"); });
+          pedirRegistro("Entra para ver y conservar tus propiedades guardadas.", function () { go("saved"); });
           break;
         }
         go("saved");
@@ -1046,7 +1055,7 @@
       case "cuenta":
         closeDrawer(true);
         if (S.sesion()) openSheet(cuentaHTML());
-        else pedirRegistro("Crea tu cuenta para guardar propiedades y compartirlas.");
+        else pedirRegistro("Entra para guardar propiedades y compartirlas desde cualquier pantalla.");
         break;
       case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); render(); break;
       case "sheet-close": closeSheet(); break;
@@ -1069,7 +1078,7 @@
         e.preventDefault(); e.stopPropagation();
         var slug = t.getAttribute("data-slug");
         if (!S.sesion()) {
-          pedirRegistro("Crea tu cuenta para guardar esta propiedad y volver a ella cuando quieras.", function () {
+          pedirRegistro("Entra o crea tu cuenta para guardar esta propiedad y volver a ella cuando quieras.", function () {
             S.alternarFavorito(slug); toast("Cuenta creada y propiedad guardada."); render();
           });
           break;
@@ -1107,7 +1116,7 @@
       case "retry": startLoading(); break;
       case "share": {
         if (!S.sesion()) {
-          pedirRegistro("Crea tu cuenta para compartir esta propiedad.", function () { toast("Cuenta creada."); compartir(); });
+          pedirRegistro("Entra o crea tu cuenta para compartir esta propiedad.", function () { compartir(); });
           break;
         }
         compartir();

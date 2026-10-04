@@ -30,7 +30,7 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 
 | | Usuario | Administrador |
 |---|---|---|
-| **Entra** | Se registra con nombre completo, correo y teléfono | *Acceso equipo*, al pie del sitio y al final del menú → correo o teléfono + contraseña (o directo en `#/admin`) |
+| **Entra** | Botón **Entrar** del header (y del menú en teléfono): nombre completo, correo y teléfono. Con el mismo correo retoma su cuenta; el botón pasa a mostrar su nombre | *Acceso equipo*, al pie del sitio y al final del menú → correo o teléfono + contraseña (o directo en `#/admin`) |
 | **Puede** | Buscar, ver fichas, **guardar** y **compartir** | Publicar y editar propiedades, mover interesados en el Kanban, ver quién guardó o compartió qué |
 | **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
 
