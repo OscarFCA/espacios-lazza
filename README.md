@@ -30,9 +30,15 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 
 | | Usuario | Administrador |
 |---|---|---|
-| **Entra** | Botón **Entrar** del header (y del menú en teléfono): nombre completo, correo y teléfono. Con el mismo correo retoma su cuenta; el botón pasa a mostrar su nombre | *Acceso equipo*, al pie del sitio y al final del menú → correo o teléfono + contraseña (o directo en `#/admin`) |
+| **Entra** | **Crear cuenta** (CTA verde del header): nombre completo, correo y teléfono | **Iniciar sesión**, el mismo botón que usa cualquiera |
 | **Puede** | Buscar, ver fichas, **guardar** y **compartir** | Publicar y editar propiedades, mover interesados en el Kanban, ver quién guardó o compartió qué |
 | **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
+
+**Un solo login decide a dónde va cada quien.** Se pide primero el correo o el
+teléfono: si la cuenta trae bandera de administrador, pide contraseña y abre el panel;
+si es una cuenta común, entra directo a sus propiedades guardadas; si no existe,
+ofrece crearla con esos datos. La cuenta del equipo vive en la misma lista de usuarios
+marcada con `admin: true`, y nadie puede registrarse con ese correo.
 
 El panel tiene tres secciones: **Interesados** (Kanban de 6 etapas: Nuevo · Contactado ·
 Visita agendada · Negociación · Cerrado · Descartado), **Propiedades** (alta, edición,

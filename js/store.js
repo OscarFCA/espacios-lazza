@@ -21,6 +21,7 @@
   // Sirve para que la contraseña no viaje en claro en el repositorio.
   var ADMIN_HASH = "fb39b9bcbdbb74d09f46eab5751b6cabff6e266e1d93ad0c880b638d5e658c5a";
   var ADMIN_IDS = ["info@lazza.com.mx", "5522504642"];
+  var ADMIN_NOMBRE = "Equipo Legato";
 
   var ETAPAS = [
     { id: "nuevo", label: "Nuevo" },
@@ -52,6 +53,7 @@
   /* El campo `notas` era un texto único; ahora el seguimiento es una bitácora.
      Lo que ya estuviera escrito se conserva como la primera entrada. */
   function migrar(d) {
+    asegurarAdmin(d);
     (d.leads || []).forEach(function (l) {
       if (!Array.isArray(l.seguimiento)) {
         l.seguimiento = [];
@@ -60,6 +62,18 @@
         }
       }
       delete l.notas;
+    });
+    return d;
+  }
+
+  /* La cuenta del equipo vive en la misma lista de usuarios, marcada con
+     `admin: true`. El login la reconoce por esa bandera, no por un caso especial. */
+  function asegurarAdmin(d) {
+    var ya = (d.usuarios || []).filter(function (u) { return u.admin; })[0];
+    if (ya) return d;
+    (d.usuarios = d.usuarios || []).push({
+      id: uid("usr"), nombre: ADMIN_NOMBRE, correo: ADMIN_IDS[0], telefono: ADMIN_IDS[1],
+      admin: true, alta: hoy()
     });
     return d;
   }
@@ -115,6 +129,7 @@
         usuarioId: u.id, nombre: u.nombre, slug: b.propiedad, fecha: hoy(), ejemplo: true
       });
     });
+    asegurarAdmin(d);
     d.seed = true;
     return d;
   }
@@ -146,6 +161,10 @@
     if (Object.keys(err).length) return { ok: false, errores: err };
 
     var correo = normCorreo(datos.correo);
+    var dueño = usuarioPorId(correo);
+    if (dueño && dueño.admin) {
+      return { ok: false, errores: { correo: "Ese correo es del equipo. Usa Iniciar sesión." } };
+    }
     var tel = normTel(datos.telefono);
     var existente = db.usuarios.filter(function (u) { return u.correo === correo; })[0];
 
@@ -173,6 +192,35 @@
     db.sesion = existente.id;
     save();
     return { ok: true, usuario: existente };
+  }
+
+  function usuarioPorId(identificador) {
+    var correo = normCorreo(identificador);
+    var tel = normTel(identificador);
+    return db.usuarios.filter(function (u) {
+      return u.correo === correo || (tel.length >= 10 && u.telefono === tel);
+    })[0] || null;
+  }
+
+  /* El login pregunta primero por el correo: si la cuenta trae bandera de
+     administrador pide contraseña; si no, entra directo. */
+  function buscarCuenta(identificador) {
+    var u = usuarioPorId(identificador);
+    if (!u) return { existe: false };
+    return { existe: true, admin: !!u.admin, nombre: u.nombre };
+  }
+
+  async function iniciarSesion(identificador, password) {
+    var u = usuarioPorId(identificador);
+    if (!u) return { ok: false, motivo: "no-existe" };
+    if (u.admin) {
+      var passOk = (await sha256(ADMIN_SALT + String(password || ""))) === ADMIN_HASH;
+      if (!passOk) return { ok: false, motivo: "password" };
+      db.sesion = u.id; db.admin = true; save();
+      return { ok: true, admin: true, usuario: u };
+    }
+    db.sesion = u.id; db.admin = false; save();
+    return { ok: true, admin: false, usuario: u };
   }
 
   function sesion() {
@@ -304,13 +352,8 @@
   /* ------------------------------- admin -------------------------------- */
 
   async function entrarAdmin(identificador, password) {
-    var id = String(identificador || "").trim().toLowerCase();
-    var idOk = ADMIN_IDS.indexOf(id) >= 0 || ADMIN_IDS.indexOf(normTel(id)) >= 0;
-    var passOk = (await sha256(ADMIN_SALT + String(password || ""))) === ADMIN_HASH;
-    if (!idOk || !passOk) return { ok: false };
-    db.admin = true;
-    save();
-    return { ok: true };
+    var r = await iniciarSesion(identificador, password);
+    return { ok: !!(r.ok && r.admin) };
   }
   function esAdmin() { return !!db.admin; }
   function salirAdmin() { db.admin = false; save(); }
@@ -323,6 +366,7 @@
   window.Store = {
     ETAPAS: ETAPAS,
     registrar: registrar, validarRegistro: validarRegistro, sesion: sesion, salir: salir,
+    buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion,
     usuarios: function () { return db.usuarios.slice(); },
     favoritos: favoritos, alternarFavorito: alternarFavorito,
     registrarActividad: registrarActividad, actividad: function () { return db.actividad.slice(); },

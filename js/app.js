@@ -637,10 +637,17 @@
 
   function renderNav() {
     var u = S.sesion();
-    [document.getElementById("cta-cuenta"), document.getElementById("cta-cuenta-movil")].forEach(function (b) {
+    ["cta-login", "cta-signup", "cta-login-movil", "cta-signup-movil"].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b) b.hidden = !!u;
+    });
+    ["cta-cuenta", "cta-cuenta-movil"].forEach(function (id) {
+      var b = document.getElementById(id);
       if (!b) return;
-      b.textContent = u ? u.nombre.split(" ")[0] : "Entrar";
-      b.setAttribute("aria-label", u ? "Tu cuenta: " + u.nombre : "Entrar o crear tu cuenta");
+      b.hidden = !u;
+      if (!u) return;
+      b.textContent = S.esAdmin() ? "Panel · " + u.nombre.split(" ")[0] : u.nombre.split(" ")[0];
+      b.setAttribute("aria-label", "Tu cuenta: " + u.nombre);
     });
 
     var items = navItems();
@@ -728,6 +735,12 @@
     if (adminForm) adminForm.addEventListener("submit", function (e) {
       e.preventDefault();
       window.Admin.login(adminForm);
+    });
+
+    var loginForm = document.getElementById("login-form");
+    if (loginForm) loginForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (document.getElementById("lg-pass")) loginAdmin(); else loginPaso1();
     });
 
     var regForm = document.getElementById("registro-form");
@@ -952,6 +965,78 @@
     '</div>';
   }
 
+  var loginId = "";
+
+  function loginHTML(paso, error, nombre) {
+    var campoId = '<div class="field' + (error === "no-existe" ? " field--error" : "") + '">' +
+      '<label for="lg-id">Correo o teléfono</label>' +
+      '<input id="lg-id" name="id" type="text" autocomplete="username" inputmode="email" value="' + esc(loginId) + '"' +
+      (error === "no-existe" ? ' aria-invalid="true" aria-describedby="lg-id-e"' : "") + '>' +
+      (error === "no-existe"
+        ? '<p class="field__error" id="lg-id-e">' + icon("alert", 16) + 'No encontramos una cuenta con esos datos.</p>'
+        : "") +
+    '</div>';
+
+    var cuerpo = paso === 2
+      ? '<p class="lead">Hola, ' + esc(nombre || "equipo") + '.</p>' +
+        '<p class="small" style="color:var(--text-secondary);margin-top:8px">Esta cuenta es del equipo: escribe la contraseña para abrir el panel.</p>' +
+        '<form id="login-form" style="display:grid;gap:16px;margin-top:20px">' +
+          '<div class="field"><label for="lg-id-fijo">Cuenta</label>' +
+            '<input id="lg-id-fijo" value="' + esc(loginId) + '" readonly></div>' +
+          '<div class="field' + (error === "password" ? " field--error" : "") + '">' +
+            '<label for="lg-pass">Contraseña</label>' +
+            '<input id="lg-pass" name="pass" type="password" autocomplete="current-password"' +
+            (error === "password" ? ' aria-invalid="true" aria-describedby="lg-pass-e"' : "") + '>' +
+            (error === "password" ? '<p class="field__error" id="lg-pass-e">' + icon("alert", 16) + 'Contraseña incorrecta.</p>' : "") +
+          '</div>' +
+        '</form>'
+      : '<p class="lead">Entra a tu cuenta para ver tus propiedades guardadas.</p>' +
+        '<form id="login-form" style="display:grid;gap:16px;margin-top:20px">' + campoId + '</form>' +
+        (error === "no-existe"
+          ? '<button class="btn btn--line btn--block" data-action="signup" style="margin-top:4px">Crear cuenta con estos datos</button>'
+          : "");
+
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">Iniciar sesión</h2>' +
+      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+    '</div>' +
+    '<div class="sheet__body">' + cuerpo + '</div>' +
+    '<div class="sheet__foot">' +
+      (paso === 2
+        ? '<button class="btn btn--link" data-action="login-back">Cambiar cuenta</button>' +
+          '<button class="btn btn--primary" data-action="login-admin">Entrar al panel</button>'
+        : '<button class="btn btn--link" data-action="signup">Crear cuenta</button>' +
+          '<button class="btn btn--primary" data-action="login-next">Continuar</button>') +
+    '</div>';
+  }
+
+  function pedirLogin() { loginId = ""; openSheet(loginHTML(1)); }
+
+  function loginPaso1() {
+    var f = document.getElementById("login-form");
+    loginId = (f && f.id && f.id.value || "").trim();
+    var r = S.buscarCuenta(loginId);
+    if (!r.existe) { openSheet(loginHTML(1, "no-existe")); return; }
+    if (r.admin) { openSheet(loginHTML(2, null, r.nombre)); return; }
+    S.iniciarSesion(loginId).then(function (res) {
+      closeSheet();
+      toast("Hola de nuevo, " + res.usuario.nombre.split(" ")[0] + ".");
+      go("saved");
+    });
+  }
+
+  function loginAdmin() {
+    var f = document.getElementById("login-form");
+    var pass = f && f.pass ? f.pass.value : "";
+    S.iniciarSesion(loginId, pass).then(function (res) {
+      if (!res.ok) { openSheet(loginHTML(2, "password")); return; }
+      closeSheet();
+      toast("Sesión de administrador iniciada.");
+      go("admin");
+    });
+  }
+
   function pedirRegistro(contexto, despues) {
     accionPendiente = despues || null;
     openSheet(registroHTML(contexto));
@@ -987,6 +1072,12 @@
       '<p class="eyebrow">Sesión activa</p>' +
       '<p style="font-size:var(--fs-h4);font-weight:600;margin-top:6px">' + esc(u.nombre) + '</p>' +
       '<p class="small" style="color:var(--text-secondary)">' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
+      (S.esAdmin()
+        ? '<div class="admin-block"><h3>Equipo</h3>' +
+            '<p class="small">Tu cuenta tiene acceso al panel interno.</p>' +
+            '<button class="btn btn--primary btn--sm" data-action="admin" style="margin-top:12px">Ir al panel</button>' +
+          '</div>'
+        : "") +
       '<div class="admin-block"><h3>Guardados</h3>' +
         '<p class="small">' + (n ? n + (n === 1 ? " propiedad guardada" : " propiedades guardadas") : "Todavía no guardas propiedades") + '.</p>' +
       '</div>' +
@@ -1061,6 +1152,14 @@
       case "sheet-close": closeSheet(); break;
       case "admin": closeDrawer(true); go("admin"); break;
       case "registro-submit": enviarRegistro(); break;
+      case "login": closeDrawer(true); pedirLogin(); break;
+      case "signup":
+        closeDrawer(true);
+        pedirRegistro("Crea tu cuenta para guardar propiedades y compartirlas.");
+        break;
+      case "login-next": loginPaso1(); break;
+      case "login-admin": loginAdmin(); break;
+      case "login-back": openSheet(loginHTML(1)); break;
       case "set-op":
         state.op = t.getAttribute("data-op");
         state.max = 0; state.min = 0;
