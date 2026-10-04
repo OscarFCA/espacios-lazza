@@ -831,3 +831,32 @@ body.is-admin .footer { display: none; }
   background: rgba(104,122,88,.14); color: var(--action-primary);
   font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
 }
+
+/* ---------- Pestañas del perfil (solo cuenta de equipo) ---------- */
+.tabsnav {
+  display: flex; gap: var(--space-lg); align-items: center;
+  border-bottom: 1px solid var(--border-default);
+  overflow-x: auto; scrollbar-width: none; margin-top: var(--space-xs);
+}
+.tabsnav::-webkit-scrollbar { display: none; }
+.tabsnav button {
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  min-height: 52px; padding: 0 2px; background: none; border: 0;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-size: var(--fs-small); font-weight: 600; color: var(--text-secondary);
+  transition: color var(--duration-hover) var(--ease), border-color var(--duration-hover) var(--ease);
+}
+.tabsnav button:hover { color: var(--text-primary); }
+.tabsnav button[aria-current="page"] { color: var(--text-primary); border-bottom-color: var(--action-primary); }
+.tabsnav__n {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  background: var(--bg-soft); border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 700; color: var(--text-on-soft);
+}
+.tabsnav button[aria-current="page"] .tabsnav__n { background: var(--action-primary); color: var(--text-inverse); }
+.tabsnav__hint { margin-left: auto; padding-left: var(--space-md); font-size: var(--fs-small); color: var(--action-primary); white-space: nowrap; }
+
+.perfil__panel { padding-block: var(--space-xl) var(--space-3xl); }
+/* El tablero necesita todo el ancho aunque viva dentro del contenedor. */
+.kanban-wrap { margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); }

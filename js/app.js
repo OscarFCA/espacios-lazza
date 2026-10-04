@@ -23,7 +23,7 @@
   };
 
   var state = Object.assign({}, DEFAULTS, {
-    screen: "home", sel: null,
+    screen: "home", sel: null, perfilTab: "perfil",
     loading: false, error: false
   });
   function favs() { return S.favoritos(); }
@@ -221,9 +221,8 @@
     if (screen === "results") return "#/resultados" + toQuery();
     if (screen === "detail") return "#/propiedad/" + state.sel;
     if (screen === "saved") return "#/guardados";
-    if (screen === "admin") return "#/admin";
     if (screen === "oportunidades") return "#/oportunidades";
-    if (screen === "perfil") return "#/perfil";
+    if (screen === "perfil") return "#/perfil" + (state.perfilTab !== "perfil" ? "/" + state.perfilTab : "");
     return "#/";
   }
 
@@ -282,14 +281,21 @@
 
     if (path.indexOf("#/perfil") === 0) {
       if (!S.sesion()) { state.screen = "oportunidades"; render(); pedirLogin(); return; }
+      var t = path.slice("#/perfil".length).replace(/^\//, "");
+      var validas = ["interesados", "propiedades", "actividad"];
+      state.perfilTab = (S.esAdmin() && validas.indexOf(t) >= 0) ? t : "perfil";
       state.screen = "perfil";
       render();
       return;
     }
 
+    // El panel dejó de ser pantalla aparte: vive en las pestañas del perfil.
     if (path.indexOf("#/admin") === 0) {
-      state.screen = "admin";
+      if (S.esAdmin()) { location.replace("#/perfil/interesados"); return; }
+      history.replaceState(null, "", "#/");
+      state.screen = "home";
       render();
+      pedirLogin();
       return;
     }
 
@@ -595,23 +601,57 @@
 
   /* ---------- Perfil ---------- */
 
+  var TABS_ADMIN = [
+    { id: "interesados", label: "Interesados" },
+    { id: "propiedades", label: "Propiedades" },
+    { id: "actividad", label: "Actividad" }
+  ];
+
+  /* La barra de pestañas solo existe si la cuenta trae bandera de equipo. */
+  function tabsPerfil() {
+    if (!S.esAdmin()) return "";
+    var c = window.Admin.conteos();
+    var tabs = [{ id: "perfil", label: "Mi perfil", n: null }].concat(TABS_ADMIN.map(function (t) {
+      return { id: t.id, label: t.label, n: c[t.id] };
+    }));
+    return '<nav class="tabsnav" aria-label="Secciones de tu cuenta">' + tabs.map(function (t) {
+      var on = state.perfilTab === t.id;
+      return '<button data-action="perfil-tab" data-tab="' + t.id + '"' + (on ? ' aria-current="page"' : "") + '>' +
+        esc(t.label) + (t.n != null ? '<span class="tabsnav__n">' + t.n + "</span>" : "") + "</button>";
+    }).join("") +
+      (c.nuevos ? '<span class="tabsnav__hint">' + c.nuevos + ' sin contactar</span>' : "") +
+    '</nav>';
+  }
+
   function viewPerfil() {
     var u = S.sesion();
-    var guardadas = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
-    var oport = S.oportunidades();
-    return '<div class="container">' +
+    var cabeza = '<div class="container">' +
       '<div class="perfil__head">' +
         '<span class="avatar avatar--lg" aria-hidden="true"><img src="assets/logo-mark-white.png" alt=""></span>' +
         '<div class="perfil__id">' +
-          '<p class="eyebrow">Tu cuenta</p>' +
+          '<p class="eyebrow">' + (S.esAdmin() ? "Tu cuenta · Equipo Legato" : "Tu cuenta") + '</p>' +
           '<h1>' + esc(u.nombre) + '</h1>' +
           '<p>' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
         '</div>' +
         '<div class="perfil__acciones">' +
-          (S.esAdmin() ? '<button class="btn btn--primary btn--sm" data-action="admin">Ir al panel</button>' : "") +
+          (S.esAdmin() && state.perfilTab !== "perfil"
+            ? '<button class="btn btn--quiet btn--sm" data-action="admin-reset">Reiniciar datos</button>' : "") +
           '<button class="btn btn--quiet btn--sm" data-action="logout">Cerrar sesión</button>' +
         '</div>' +
       '</div>' +
+      tabsPerfil() +
+    '</div>';
+
+    if (S.esAdmin() && state.perfilTab !== "perfil") {
+      return cabeza + '<div class="container perfil__panel">' + window.Admin.panel(state.perfilTab) + '</div>';
+    }
+    return cabeza + perfilPropio();
+  }
+
+  function perfilPropio() {
+    var guardadas = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
+    var oport = S.oportunidades();
+    return '<div class="container">' +
 
       '<section class="perfil__seccion">' +
         '<p class="badge-pro">' + icon("lock", 12) + 'Solo para tu cuenta</p>' +
@@ -811,8 +851,7 @@
 
   function render() {
     refrescarDatos();
-    var html = state.screen === "admin" ? window.Admin.view()
-             : state.screen === "oportunidades" ? viewOportunidades()
+    var html = state.screen === "oportunidades" ? viewOportunidades()
              : state.screen === "perfil" ? viewPerfil()
              : state.screen === "results" ? viewResults()
              : state.screen === "detail" ? viewDetail()
@@ -820,7 +859,6 @@
              : viewHome();
     main.innerHTML = html;
     renderNav();
-    document.body.classList.toggle("is-admin", state.screen === "admin");
     document.body.classList.toggle("has-actionbar", state.screen === "detail");
     document.title = state.screen === "detail"
       ? ((S.catalogoCompleto().filter(function (p) { return p.slug === state.sel; })[0] || {}).title || "Propiedad") + " · Legato Capital"
@@ -828,7 +866,6 @@
       : state.screen === "saved" ? "Guardados · Legato Capital"
       : state.screen === "oportunidades" ? "Oportunidades · Legato Capital"
       : state.screen === "perfil" ? "Mi perfil · Legato Capital"
-      : state.screen === "admin" ? "Administración · Legato Capital"
       : "Legato Capital · Patrimonio que trasciende";
     bindViewEvents();
   }
@@ -861,12 +898,6 @@
     if (sort) sort.addEventListener("change", function () {
       state.sort = this.value;
       go("results", null, { replace: true });
-    });
-
-    var adminForm = document.getElementById("admin-login");
-    if (adminForm) adminForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      window.Admin.login(adminForm);
     });
 
     var loginForm = document.getElementById("login-form");
@@ -1168,7 +1199,8 @@
       if (!res.ok) { openSheet(loginHTML(2, "password")); return; }
       closeSheet();
       toast("Sesión de administrador iniciada.");
-      go("admin");
+      state.perfilTab = "interesados";
+      go("perfil");
     });
   }
 
@@ -1200,10 +1232,11 @@
   function numFrom(v) { return Number(String(v).replace(/[^0-9]/g, "")) || 0; }
 
   document.addEventListener("click", function (e) {
-    // El panel admin tiene sus propios objetivos (pestañas, tarjetas del Kanban).
-    if (state.screen === "admin") {
-      var at = e.target.closest("[data-action], [data-admin-tab], [data-lead]");
-      if (at && window.Admin.handle(at.getAttribute("data-action"), at, e)) return;
+    // Con una pestaña del panel activa, el panel atiende primero sus objetivos.
+    if (state.screen === "perfil" && state.perfilTab !== "perfil" && S.esAdmin()) {
+      var at = e.target.closest("[data-action], [data-lead]");
+      if (at && at.getAttribute("data-action") !== "perfil-tab" &&
+          window.Admin.handle(at.getAttribute("data-action"), at, e)) return;
     }
 
     var t = e.target.closest("[data-action], [data-draft], .card");
@@ -1255,12 +1288,20 @@
         else pedirLogin();
         break;
       case "oportunidades": closeDrawer(true); go("oportunidades"); break;
+      case "perfil-tab":
+        state.perfilTab = t.getAttribute("data-tab");
+        go("perfil", null, { replace: false });
+        break;
       case "oport-gate":
         pedirRegistro("Crea tu cuenta para ver esta oportunidad completa: ubicación, superficie y precio.");
         break;
       case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); go("home"); break;
       case "sheet-close": closeSheet(); break;
-      case "admin": closeDrawer(true); go("admin"); break;
+      case "admin":
+        closeDrawer(true);
+        if (S.sesion()) { state.perfilTab = S.esAdmin() ? "interesados" : "perfil"; go("perfil"); }
+        else pedirLogin();
+        break;
       case "registro-submit": enviarRegistro(); break;
       case "login": closeDrawer(true); pedirLogin(); break;
       case "signup":

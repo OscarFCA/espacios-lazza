@@ -10,8 +10,6 @@
   function esc(s) { return ui().esc(s); }
   function icon(n, s) { return ui().icon(n, s); }
 
-  var vista = "kanban";                // kanban | propiedades | actividad
-  var errorAcceso = false;
   var leadAbierto = null;
   var arrastrando = null;
 
@@ -34,27 +32,6 @@
   function tituloDe(slug) {
     var p = window.Store.catalogoCompleto().filter(function (x) { return x.slug === slug; })[0];
     return p ? p.title + " · " + p.zona : slug;
-  }
-
-  /* ============================== acceso ============================== */
-
-  function vistaLogin(error) {
-    return '<div class="container admin-login">' +
-      '<div class="admin-login__card">' +
-        '<p class="eyebrow">Panel interno</p>' +
-        '<h1>Administración</h1>' +
-        '<p class="lead" style="margin-top:8px">Acceso para el equipo de Legato Capital.</p>' +
-        '<form id="admin-login" style="margin-top:24px;display:grid;gap:16px">' +
-          '<div class="field"><label for="ad-user">Correo o teléfono</label>' +
-            '<input id="ad-user" name="user" type="text" autocomplete="username" placeholder="info@lazza.com.mx"></div>' +
-          '<div class="field' + (error ? " field--error" : "") + '"><label for="ad-pass">Contraseña</label>' +
-            '<input id="ad-pass" name="pass" type="password" autocomplete="current-password"' +
-            (error ? ' aria-invalid="true" aria-describedby="ad-error"' : "") + '></div>' +
-          (error ? '<p class="field__error" id="ad-error">' + icon("alert", 16) + 'Usuario o contraseña incorrectos.</p>' : "") +
-          '<button class="btn btn--primary btn--block" type="submit">Entrar</button>' +
-        '</form>' +
-      '</div>' +
-    '</div>';
   }
 
   /* ============================== Kanban ============================== */
@@ -293,41 +270,20 @@
     '</div>';
   }
 
-  /* ============================== shell =============================== */
-
-  function view() {
-    if (!window.Store.esAdmin()) return vistaLogin(errorAcceso);
-
-    var leads = window.Store.leads();
-    var nuevos = leads.filter(function (l) { return l.etapa === "nuevo"; }).length;
-    var cuerpo = vista === "propiedades" ? vistaPropiedades()
-               : vista === "actividad" ? vistaActividad()
-               : vistaKanban();
-
-    return '<div class="admin">' +
-      '<div class="container admin__head">' +
-        '<div>' +
-          '<p class="eyebrow">Panel interno</p>' +
-          '<h1>Administración</h1>' +
-        '</div>' +
-        '<div class="admin__actions">' +
-          '<button class="btn btn--quiet btn--sm" data-action="admin-reset">Reiniciar datos</button>' +
-          '<button class="btn btn--secondary btn--sm" data-action="admin-out">Salir</button>' +
-        '</div>' +
-      '</div>' +
-      '<div class="container admin__tabs" role="tablist">' +
-        tab("kanban", "Interesados", leads.length) +
-        tab("propiedades", "Propiedades", window.Store.catalogoCompleto().length) +
-        tab("actividad", "Actividad", window.Store.actividad().length) +
-        (nuevos ? '<span class="admin__hint">' + nuevos + ' sin contactar</span>' : "") +
-      '</div>' +
-      '<div class="' + (vista === "kanban" ? "admin__board" : "container admin__panel") + '">' + cuerpo + '</div>' +
-    '</div>';
+  /* Secciones que el perfil monta en sus pestañas (solo con bandera de admin). */
+  function panel(seccion) {
+    if (seccion === "propiedades") return vistaPropiedades();
+    if (seccion === "actividad") return vistaActividad();
+    return '<div class="kanban-wrap">' + vistaKanban() + '</div>';
   }
 
-  function tab(id, label, n) {
-    return '<button class="chip' + (vista === id ? " is-on" : "") + '" role="tab" aria-selected="' + (vista === id) + '" data-admin-tab="' + id + '">' +
-      esc(label) + '<span class="filterbtn__count">' + n + '</span></button>';
+  function conteos() {
+    return {
+      interesados: window.Store.leads().length,
+      propiedades: window.Store.catalogoCompleto().length,
+      actividad: window.Store.actividad().length,
+      nuevos: window.Store.leads().filter(function (l) { return l.etapa === "nuevo"; }).length
+    };
   }
 
   /* ============================== eventos ============================= */
@@ -372,15 +328,7 @@
   function handle(action, target, event) {
     var S = window.Store;
 
-    if (target.hasAttribute("data-admin-tab")) {
-      vista = target.getAttribute("data-admin-tab");
-      leadAbierto = null;
-      ui().render();
-      return true;
-    }
-
     switch (action) {
-      case "admin-out": S.salirAdmin(); ui().go("home"); return true;
       case "admin-reset":
         if (confirm("Esto borra los interesados, la actividad y las propiedades dadas de alta en este navegador, y repone los datos de ejemplo. ¿Continuar?")) {
           S.reiniciar(); ui().toast("Datos reiniciados."); ui().render();
@@ -565,20 +513,5 @@
     });
   }
 
-  async function login(form) {
-    var d = leerForm(form);
-    var r = await window.Store.entrarAdmin(d.user, d.pass);
-    if (!r.ok) {
-      errorAcceso = true;
-      ui().render();                       // re-render para reconectar el formulario
-      var u = document.getElementById("ad-user");
-      if (u) { u.value = d.user; document.getElementById("ad-pass").focus(); }
-      return;
-    }
-    errorAcceso = false;
-    ui().toast("Sesión de administrador iniciada.");
-    ui().render();
-  }
-
-  window.Admin = { view: view, handle: handle, bind: bind, login: login };
+  window.Admin = { panel: panel, conteos: conteos, handle: handle, bind: bind };
 })();
