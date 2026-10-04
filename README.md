@@ -39,7 +39,12 @@ Visita agendada · Negociación · Cerrado · Descartado), **Propiedades** (alta
 retiro y fotos) y **Actividad** (quién guardó y quién compartió, con fecha).
 
 La ficha de cada interesado guarda teléfono, correo, otros correos, presupuesto,
-empresa u ocupación, notas y etapa, y muestra su origen y todo su historial.
+empresa u ocupación y etapa, y muestra su origen y todo su historial.
+
+El **seguimiento es una bitácora**: cada interesado acumula las notas que haga falta,
+con fecha y hora, la más reciente arriba, y se pueden borrar una por una. Se guardan al
+agregarlas, sin pasar por *Guardar cambios*, y la tarjeta del Kanban asoma la última y
+cuántas lleva.
 
 El Kanban se mueve arrastrando con el ratón y, en táctil y teclado, con el selector de
 etapa que lleva cada tarjeta.

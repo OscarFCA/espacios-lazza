@@ -56,6 +56,7 @@
       image: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="9.5" r="1.3"/>',
       external: '<path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V7.5A1.5 1.5 0 0 1 6 6h4"/>',
       close: '<path d="M6 6l12 12M18 6L6 18"/>',
+      note: '<path d="M7 4h10a1 1 0 0 1 1 1v14l-6-3-6 3V5a1 1 0 0 1 1-1Z"/>',
       alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'
     };
     return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +

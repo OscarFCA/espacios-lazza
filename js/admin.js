@@ -24,6 +24,13 @@
       return new Date(iso).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
     } catch (e) { return ""; }
   }
+  function fechaHora(iso) {
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + " · " +
+             d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
   function tituloDe(slug) {
     var p = window.Store.catalogo().filter(function (x) { return x.slug === slug; })[0];
     return p ? p.title + " · " + p.zona : slug;
@@ -60,8 +67,12 @@
       (l.empresa ? '<p class="kcard__meta">' + esc(l.empresa) + '</p>' : "") +
       '<p class="kcard__meta">' + esc(l.telefono || "sin teléfono") + '</p>' +
       (l.presupuesto ? '<p class="kcard__budget">' + esc(dinero(l.presupuesto)) + '</p>' : "") +
+      (l.seguimiento && l.seguimiento.length
+        ? '<p class="kcard__note">' + icon("note", 13) + '<span>' + esc(l.seguimiento[0].texto) + '</span></p>'
+        : "") +
       '<div class="kcard__foot">' +
-        '<span>' + act.length + (act.length === 1 ? " interacción" : " interacciones") + '</span>' +
+        '<span>' + (l.seguimiento || []).length + ((l.seguimiento || []).length === 1 ? " nota" : " notas") +
+          ' · ' + act.length + (act.length === 1 ? " interacción" : " interacciones") + '</span>' +
         '<span>' + esc(fecha(l.actualizado)) + '</span>' +
       '</div>' +
       // Alternativa táctil y de teclado al arrastre
@@ -118,9 +129,26 @@
           '<div class="field"><label for="lf-emp">Empresa u ocupación</label>' +
             '<input id="lf-emp" name="empresa" value="' + esc(l.empresa || "") + '"></div>' +
         '</div>' +
-        '<div class="field"><label for="lf-notas">Notas</label>' +
-          '<textarea id="lf-notas" name="notas" rows="4" placeholder="Qué busca, condiciones, siguiente paso…">' + esc(l.notas || "") + '</textarea></div>' +
       '</form>' +
+
+      '<div class="admin-block">' +
+        '<h3>Seguimiento (' + (l.seguimiento || []).length + ')</h3>' +
+        '<div class="notafrm">' +
+          '<label class="sr-only" for="lf-nota">Nueva nota de seguimiento</label>' +
+          '<textarea id="lf-nota" rows="2" placeholder="Qué se habló, qué se acordó, siguiente paso…"></textarea>' +
+          '<button class="btn btn--primary btn--sm" data-action="nota-add" data-lead="' + esc(l.id) + '">Agregar nota</button>' +
+        '</div>' +
+        ((l.seguimiento || []).length
+          ? '<ol class="notas">' + l.seguimiento.map(function (n) {
+              return '<li class="nota">' +
+                '<div class="nota__head"><time>' + esc(fechaHora(n.fecha)) + '</time>' +
+                  '<button class="nota__x" data-action="nota-del" data-lead="' + esc(l.id) + '" data-nota="' + esc(n.id) + '" ' +
+                    'aria-label="Eliminar nota del ' + esc(fechaHora(n.fecha)) + '">Eliminar</button></div>' +
+                '<p>' + esc(n.texto) + '</p>' +
+              '</li>';
+            }).join("") + '</ol>'
+          : '<p class="small" style="color:var(--text-secondary);margin-top:12px">Sin notas todavía.</p>') +
+      '</div>' +
 
       '<div class="admin-block">' +
         '<h3>Origen</h3>' +
@@ -364,9 +392,29 @@
         var d = leerForm(f);
         S.actualizarLead(f.getAttribute("data-lead"), {
           nombre: d.nombre, telefono: d.telefono, correo: d.correo, correosExtra: d.correosExtra,
-          presupuesto: soloNum(d.presupuesto), empresa: d.empresa, notas: d.notas, etapa: d.etapa
+          presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
         });
         ui().closeSheet(); ui().toast("Ficha actualizada."); ui().render();
+        return true;
+      }
+      case "nota-add": {
+        var idl = target.getAttribute("data-lead");
+        var ta = document.getElementById("lf-nota");
+        var txt = (ta && ta.value || "").trim();
+        if (!txt) { if (ta) ta.focus(); return true; }
+        guardarCamposFicha(idl);            // no perder lo escrito arriba al re-dibujar
+        S.agregarNota(idl, txt);
+        ui().openSheet(fichaLead(S.lead(idl)));
+        ui().toast("Nota agregada.");
+        ui().render();
+        return true;
+      }
+      case "nota-del": {
+        var idl2 = target.getAttribute("data-lead");
+        guardarCamposFicha(idl2);
+        S.borrarNota(idl2, target.getAttribute("data-nota"));
+        ui().openSheet(fichaLead(S.lead(idl2)));
+        ui().render();
         return true;
       }
       case "lead-delete": {
@@ -426,6 +474,17 @@
       if (l) { leadAbierto = l.id; ui().openSheet(fichaLead(l)); return true; }
     }
     return false;
+  }
+
+  /* Conserva lo escrito en la ficha cuando la bitácora obliga a re-dibujar. */
+  function guardarCamposFicha(idl) {
+    var f = document.getElementById("lead-form");
+    if (!f || f.getAttribute("data-lead") !== idl) return;
+    var d = leerForm(f);
+    window.Store.actualizarLead(idl, {
+      nombre: d.nombre, telefono: d.telefono, correo: d.correo, correosExtra: d.correosExtra,
+      presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
+    });
   }
 
   function montarFormProp() {

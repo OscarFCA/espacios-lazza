@@ -45,8 +45,23 @@
       var raw = localStorage.getItem(KEY);
       if (!raw) return sembrar(vacio());
       var d = JSON.parse(raw);
-      return Object.assign(vacio(), d);
+      return migrar(Object.assign(vacio(), d));
     } catch (e) { return vacio(); }
+  }
+
+  /* El campo `notas` era un texto único; ahora el seguimiento es una bitácora.
+     Lo que ya estuviera escrito se conserva como la primera entrada. */
+  function migrar(d) {
+    (d.leads || []).forEach(function (l) {
+      if (!Array.isArray(l.seguimiento)) {
+        l.seguimiento = [];
+        if (typeof l.notas === "string" && l.notas.trim()) {
+          l.seguimiento.push({ id: uid("nota"), texto: l.notas.trim(), fecha: l.alta || hoy() });
+        }
+      }
+      delete l.notas;
+    });
+    return d;
   }
 
   function save() {
@@ -60,26 +75,39 @@
     var base = [
       { nombre: "María Fernanda Ruiz", correo: "mf.ruiz@gmail.com", telefono: "5544120987",
         etapa: "contactado", presupuesto: 15000000, empresa: "Arquitecta independiente",
-        notas: "Busca terreno en Del Valle o Condesa para proyecto propio. Puede esperar hasta el primer trimestre.",
-        propiedad: "del-valle-terreno" },
+        propiedad: "del-valle-terreno",
+        notas: [
+          "Llamada inicial. Busca terreno en Del Valle o Condesa para proyecto propio.",
+          "Pidió el plano del predio por correo. Puede esperar hasta el primer trimestre."
+        ] },
       { nombre: "Jorge Alcántara", correo: "jalcantara@grupovertiz.mx", telefono: "5531887744",
         etapa: "visita", presupuesto: 28000000, empresa: "Grupo Vértiz · Desarrollo",
-        notas: "Interesado en Santa Fe por la doble orientación. Pidió uso de suelo por escrito.",
-        propiedad: "santa-fe-esquina" },
+        propiedad: "santa-fe-esquina",
+        notas: [
+          "Interesado en Santa Fe por la doble orientación.",
+          "Pidió uso de suelo por escrito. Se lo mandamos el martes.",
+          "Visita confirmada para el viernes a las 11:00 con su socio."
+        ] },
       { nombre: "Claudia Benítez", correo: "claudia.benitez@outlook.com", telefono: "5518230055",
-        etapa: "nuevo", presupuesto: 0, empresa: "",
-        notas: "", propiedad: "condesa-remodelar" },
+        etapa: "nuevo", presupuesto: 0, empresa: "", propiedad: "condesa-remodelar", notas: [] },
       { nombre: "Ricardo Lemus", correo: "rlemus@estudiolemus.com", telefono: "5569014488",
         etapa: "negociacion", presupuesto: 9500000, empresa: "Estudio Lemus · Arquitectura",
-        notas: "Oferta verbal por el terreno de Escandón. Falta avalúo.",
-        propiedad: "escandon-mixto" }
+        propiedad: "escandon-mixto",
+        notas: [
+          "Oferta verbal por el terreno de Escandón.",
+          "Falta avalúo; lo entrega su banco la próxima semana."
+        ] }
     ];
     base.forEach(function (b, i) {
       var u = { id: uid("usr"), nombre: b.nombre, correo: b.correo, telefono: b.telefono, alta: hoy(), ejemplo: true };
       d.usuarios.push(u);
       d.leads.push({
         id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
-        correosExtra: "", presupuesto: b.presupuesto, empresa: b.empresa, notas: b.notas,
+        correosExtra: "", presupuesto: b.presupuesto, empresa: b.empresa,
+        seguimiento: b.notas.map(function (t, k) {
+          var f = new Date(Date.now() - (b.notas.length - k) * 86400000 * 2).toISOString();
+          return { id: uid("nota"), texto: t, fecha: f };
+        }).reverse(),
         etapa: b.etapa, origen: b.propiedad, alta: hoy(), actualizado: hoy(), ejemplo: true
       });
       d.actividad.push({
@@ -134,7 +162,7 @@
       db.leads.push({
         id: uid("lead"), usuarioId: existente.id, nombre: existente.nombre,
         correo: existente.correo, telefono: existente.telefono, correosExtra: "",
-        presupuesto: 0, empresa: "", notas: "", etapa: "nuevo",
+        presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
         origen: datos.origen || "", alta: hoy(), actualizado: hoy()
       });
     } else {
@@ -213,6 +241,25 @@
     return l;
   }
   function moverLead(id, etapa) { return actualizarLead(id, { etapa: etapa }); }
+
+  /* Bitácora de seguimiento: varias entradas por interesado, la más reciente arriba. */
+  function agregarNota(leadId, texto) {
+    var l = lead(leadId);
+    if (!l || !String(texto || "").trim()) return null;
+    l.seguimiento = l.seguimiento || [];
+    var nota = { id: uid("nota"), texto: String(texto).trim(), fecha: hoy() };
+    l.seguimiento.unshift(nota);
+    l.actualizado = hoy();
+    save();
+    return nota;
+  }
+  function borrarNota(leadId, notaId) {
+    var l = lead(leadId);
+    if (!l) return;
+    l.seguimiento = (l.seguimiento || []).filter(function (n) { return n.id !== notaId; });
+    l.actualizado = hoy();
+    save();
+  }
   function borrarLead(id) {
     db.leads = db.leads.filter(function (l) { return l.id !== id; });
     save();
@@ -281,6 +328,7 @@
     registrarActividad: registrarActividad, actividad: function () { return db.actividad.slice(); },
     actividadDe: actividadDe, actividadDeSlug: actividadDeSlug,
     leads: leads, lead: lead, actualizarLead: actualizarLead, moverLead: moverLead, borrarLead: borrarLead,
+    agregarNota: agregarNota, borrarNota: borrarNota,
     catalogo: catalogo, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
     guardarPropiedad: guardarPropiedad, eliminarPropiedad: eliminarPropiedad,
     entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin,
