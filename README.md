@@ -155,7 +155,7 @@ inalcanzable**. Afectaba a cualquier acción dentro de un aviso.
 
 | Ruta | Pantalla |
 |------|----------|
-| `#/` | Home: hero editorial, buscador, selección, "cómo leemos una propiedad" y Nosotros |
+| `#/` | Home: hero editorial, buscador, **6 propiedades**, "cómo leemos una propiedad" y Nosotros |
 | `#/resultados?...` | Resultados: toolbar sticky, chips activos, estados vacío/carga/error |
 | `#/propiedad/<slug>` | Ficha: galería, precio, potencial, especificaciones, ubicación, similares |
 | `#/guardados` | Guardados: selección de la cuenta, con estado vacío |
@@ -215,6 +215,9 @@ Ninguna pantalla produce scroll horizontal.
   Nosotros) y el CTA de publicar.
 - **Buscar en un tap desde Home**: el buscador está desplegado y los accesos rápidos
   llevan directo a resultados filtrados.
+- **Sin fotografía de portada.** El catálogo es lo primero que se ve: en el teléfono el
+  buscador hace una sola pregunta (dónde) y tipo y precio viven en Filtros, así la
+  primera propiedad entra en la pantalla inicial.
 - **Buscador apilado** en móvil; a 1024 px se convierte en la barra horizontal única.
 - **Filtros en bottom sheet** con CTA fijo que muestra el conteo en vivo y valida
   precio mínimo/máximo. En tablet/desktop el mismo componente se centra como modal.

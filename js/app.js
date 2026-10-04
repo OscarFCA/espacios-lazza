@@ -422,7 +422,7 @@
   /* ---------- Home ---------- */
 
   function viewHome() {
-    var destacadas = DATA.filter(function (p) { return p.op === state.op; }).slice(0, 3);
+    var destacadas = DATA.filter(function (p) { return p.op === state.op; }).slice(0, 6);
     return '' +
     '<section class="container hero">' +
       '<p class="eyebrow">Patrimonio · Inversión · Arquitectura</p>' +
@@ -462,17 +462,12 @@
         quick("Precio negociable", { negociable: true }) +
       '</div>' +
 
-      '<div class="herophoto">' +
-        '<div class="photo photo--ph" role="img" aria-label="Fotografía de portada pendiente de publicación">' +
-          icon("image", 28) + '<span>Arquitectura contemporánea · luz natural · piedra y vegetación</span>' +
-        '</div>' +
-      '</div>' +
     '</section>' +
 
-    '<section class="container section">' +
+    '<section class="container section section--propiedades">' +
       '<div class="section__head">' +
-        '<h2>Selección con potencial</h2>' +
-        '<button class="btn btn--link" data-action="search">Ver todas</button>' +
+        '<h2>' + (state.op === "renta" ? "En renta ahora" : "Selección con potencial") + '</h2>' +
+        '<button class="btn btn--link" data-action="search">Ver las ' + DATA.filter(function (p) { return p.op === state.op; }).length + '</button>' +
       '</div>' +
       '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>' +
     '</section>' +
