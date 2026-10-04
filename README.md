@@ -119,9 +119,21 @@ fotos: [
 Dirección: arquitectura contemporánea, piedra, madera, olivos, luz cálida, saturación
 contenida. Ratios: card 4:3, galería 4:3, hero 16:9 / 2:1.
 
-El header usa un **wordmark tipográfico provisional** (Plus Jakarta Sans, tracking .08em):
-el logotipo de Legato es personalizado y el documento pide no reconstruirlo con una
-fuente estándar. Se sustituye en `index.html` cuando exista el archivo.
+### Logotipo
+
+Los archivos de marca están en `assets/`, recortados al contenido y exportados a 3x
+desde los originales:
+
+| Archivo | Uso |
+|---|---|
+| `logo-lockup.png` | Lockup negro (LEGATO + CAPITAL). Header 30 → 34 px, menú 26 px, pie 34 px |
+| `logo-lockup-white.png` | El mismo lockup en blanco, para superficies carbón u olivo |
+| `logo-mark.png` / `logo-mark-white.png` | Símbolo "L" suelto, para espacios cuadrados |
+| `favicon-32.png`, `apple-touch-icon.png` | Símbolo negro sobre hueso, con aire alrededor |
+| `og-image.png` | 1200×630 para compartir, lockup centrado sobre hueso |
+
+El lockup se escala **por altura** (`height` en CSS, `width: auto`); nunca se deforma
+ni se reconstruye con una fuente, como pide el §4 del documento.
 
 ## Ubicación
 
@@ -134,7 +146,6 @@ maps: "https://maps.app.goo.gl/xxxxxxxx"
 
 ## Pendiente para producción
 
-- Logotipo de Legato Capital (lockup y símbolo) y favicon.
 - Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
 - Formularios reales de *Contactar*, *Agendar visita* y *Publicar propiedad*.
 - Cuenta, guardados sincronizados (hoy en `localStorage`) y búsquedas guardadas.
