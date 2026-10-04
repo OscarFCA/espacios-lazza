@@ -43,6 +43,16 @@
   --focus-ring: var(--color-olive);
   --focus-halo: rgba(104, 122, 88, .10);
 
+  /* Etiquetas de categoría. Tonos apagados dentro de la paleta; todos los pares
+     fondo/texto verificados por encima de 4.5:1 para texto de 11 px. */
+  --tag-casa-bg: #E6EAE1;        --tag-casa-fg: #3F4E37;
+  --tag-depto-bg: #E8E7E4;       --tag-depto-fg: #333331;
+  --tag-terreno-bg: #EFE6D2;     --tag-terreno-fg: #6B5420;
+  --tag-descanso-bg: #DEEAE8;    --tag-descanso-fg: #2B5A58;
+  --tag-remodelar-bg: #F2E2DD;   --tag-remodelar-fg: #8A4537;
+  --tag-obra-bg: #EDE8DF;        --tag-obra-fg: #5A5A55;
+  --tag-anticipado-bg: #1A1A1A;  --tag-anticipado-fg: #FFFFFF;
+
   /* Tipografía — una sola familia (§4) */
   --font-primary: "Plus Jakarta Sans", "Inter", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
 

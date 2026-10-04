@@ -167,8 +167,9 @@
           var g = act.filter(function (a) { return a.tipo === "guardado"; }).length;
           var c = act.filter(function (a) { return a.tipo === "compartido"; }).length;
           return '<div class="admin-row" role="row">' +
-            '<span role="cell"><strong>' + esc(p.title) + '</strong><br><span class="small" style="color:var(--text-secondary)">' + esc(p.zona) + '</span></span>' +
-            '<span role="cell">' + (p.op === "renta" ? "Renta" : "Venta") + '</span>' +
+            '<span role="cell"><strong>' + esc(p.title) + '</strong>' + (p.exclusiva ? ' <span class="kcard__tag">anticipada</span>' : "") +
+              '<br><span class="small" style="color:var(--text-secondary)">' + esc(p.tipo) + ' · ' + esc(p.condicion || "—") + ' · ' + esc(p.zona) + '</span></span>' +
+            '<span role="cell">' + (p.op === "renta" ? "Renta" : "Venta") + (p.negociable ? '<br><span class="small" style="color:var(--text-secondary)">negociable</span>' : "") + '</span>' +
             '<span role="cell">' + esc(dinero(p.price)) + '</span>' +
             '<span role="cell">' + g + ' · ' + c + ' comp.</span>' +
             '<span role="cell" style="display:flex;gap:4px;justify-content:flex-end">' +
@@ -181,9 +182,10 @@
   }
 
   function formPropiedad(p) {
-    p = p || { slug: "", op: "venta", tipo: "Casas", badge: "NUEVA", fotos: [], fotosCount: 1, remodelar: false };
-    var tipos = ["Casas", "Terrenos", "Departamentos"];
-    var badges = ["NUEVA", "PARA REMODELAR", "TERRENO", "OPORTUNIDAD"];
+    p = p || { slug: "", op: "venta", tipo: "Casa", condicion: "Lista para habitar",
+               negociable: false, exclusiva: false, fotos: [], fotosCount: 1 };
+    var tipos = window.EL_CATALOG.tipos;
+    var condiciones = window.EL_CATALOG.condiciones;
     var num = function (v) { return v || v === 0 ? v : ""; };
     return '' +
     '<div class="sheet__head">' +
@@ -207,8 +209,8 @@
         '<div class="pair">' +
           '<div class="field"><label for="pf-price">Precio (MXN)</label>' +
             '<input id="pf-price" name="price" inputmode="numeric" required value="' + (p.price ? Number(p.price).toLocaleString("en-US") : "") + '"></div>' +
-          '<div class="field"><label for="pf-badge">Distintivo</label><select id="pf-badge" name="badge">' +
-            badges.map(function (b) { return '<option' + (p.badge === b ? " selected" : "") + '>' + b + "</option>"; }).join("") +
+          '<div class="field"><label for="pf-cond">Condición</label><select id="pf-cond" name="condicion">' +
+            condiciones.map(function (c) { return '<option' + (p.condicion === c ? " selected" : "") + '>' + c + "</option>"; }).join("") +
           '</select></div>' +
         '</div>' +
         '<div class="pair">' +
@@ -229,8 +231,10 @@
           '<div class="field"><label for="pf-autos">Estacionamientos</label>' +
             '<input id="pf-autos" name="autos" inputmode="numeric" value="' + num(p.autos) + '"></div>' +
         '</div>' +
-        '<div class="switch"><label for="pf-remodelar">Es para remodelar</label>' +
-          '<input type="checkbox" id="pf-remodelar" name="remodelar"' + (p.remodelar ? " checked" : "") + '></div>' +
+        '<div class="switch"><label for="pf-negociable">El precio es negociable</label>' +
+          '<input type="checkbox" id="pf-negociable" name="negociable"' + (p.negociable ? " checked" : "") + '></div>' +
+        '<div class="switch"><label for="pf-exclusiva">Oportunidad con acceso anticipado</label>' +
+          '<input type="checkbox" id="pf-exclusiva" name="exclusiva"' + (p.exclusiva ? " checked" : "") + '></div>' +
         '<div class="field"><label for="pf-desc">Descripción</label>' +
           '<textarea id="pf-desc" name="desc" rows="3">' + esc(p.desc || "") + '</textarea></div>' +
         '<div class="field"><label for="pf-pot">¿Por qué tiene potencial?</label>' +
@@ -366,10 +370,13 @@
         return true;
       }
       case "lead-delete": {
-        if (confirm("¿Eliminar a este interesado del tablero?")) {
-          S.borrarLead(target.getAttribute("data-lead"));
-          ui().closeSheet(); ui().toast("Interesado eliminado."); ui().render();
-        }
+        var borrado = S.borrarLead(target.getAttribute("data-lead"));
+        ui().closeSheet();
+        ui().render();
+        ui().toast("Eliminaste a " + (borrado ? borrado.nombre : "el interesado") + ".", {
+          accion: "Deshacer",
+          alTocar: function () { S.restaurarLead(borrado); ui().toast("Interesado restaurado."); ui().render(); }
+        });
         return true;
       }
 
@@ -387,30 +394,46 @@
         });
         return true;
       }
-      case "prop-del":
-        if (confirm("¿Quitar esta propiedad del sitio?")) {
-          S.eliminarPropiedad(target.getAttribute("data-slug"));
-          ui().toast("Propiedad retirada."); ui().render();
-        }
+      case "prop-del": {
+        var slugDel = target.getAttribute("data-slug");
+        var copia = S.catalogoCompleto().filter(function (x) { return x.slug === slugDel; })[0];
+        S.eliminarPropiedad(slugDel);
+        ui().render();
+        ui().toast("Retiraste " + (copia ? copia.title : "la propiedad") + ".", {
+          accion: "Deshacer",
+          alTocar: function () { S.guardarPropiedad(copia); ui().toast("Propiedad restaurada."); ui().render(); }
+        });
         return true;
+      }
       case "prop-save": {
+        var avisoSlug = "";
         var form = document.getElementById("prop-form");
         if (!form.reportValidity()) return true;
         var v = leerForm(form);
-        var slug = form.getAttribute("data-slug") || slugify(v.title + "-" + v.zona.split(",")[0]);
+        var slug = form.getAttribute("data-slug");
+        if (!slug) {
+          slug = slugify(v.title + "-" + v.zona.split(",")[0]);
+          var base = slug, i = 2;
+          // Un slug repetido pisaría otra propiedad sin avisar.
+          while (S.existeSlug(slug)) { slug = base + "-" + i; i++; }
+          if (slug !== base) avisoSlug = " Ya había una con ese nombre y zona: se publicó como " + slug + ".";
+        }
         var fotos = fotosPendientes || [];
         S.guardarPropiedad({
-          slug: slug, op: v.op, tipo: v.tipo, remodelar: !!v.remodelar,
+          slug: slug, op: v.op, tipo: v.tipo, condicion: v.condicion,
+          negociable: !!v.negociable, exclusiva: !!v.exclusiva,
           title: v.title.trim(), zona: v.zona.trim(), price: soloNum(v.price),
           terreno: soloNum(v.terreno), construido: soloNum(v.construido),
           rec: soloNum(v.rec), ban: soloNum(v.ban), autos: soloNum(v.autos),
-          frente: v.frente || "—", badge: v.badge,
+          frente: v.frente || "—",
           fotosCount: Math.max(1, fotos.length), fotos: fotos,
           nuevo: 0, x: 50, y: 50,
           desc: v.desc || "", potencial: v.potencial || "", maps: v.maps || ""
         });
         fotosPendientes = null;
-        ui().closeSheet(); ui().toast("Propiedad publicada."); ui().render();
+        ui().closeSheet();
+        ui().toast("Propiedad publicada." + avisoSlug);
+        ui().render();
         return true;
       }
     }

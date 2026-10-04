@@ -111,6 +111,46 @@ de la cuenta de prueba en `loginHTML` de `js/app.js`.
 > Toda la persistencia está aislada en `js/store.js`: conectar un backend es cambiar
 > ese archivo, no las vistas.
 
+## Categorías: tres ejes que no se mezclan
+
+Antes *tipo* mezclaba la categoría con la condición ("Casas", "Terrenos", "Para
+remodelar" convivían en el mismo selector). Ahora son tres ejes independientes:
+
+| Eje | Valores | Dónde se elige |
+|---|---|---|
+| **Tipo** — qué es | Casa · Departamento · Terreno · Casa de descanso | Filtros (selección múltiple) y accesos rápidos |
+| **Operación** — el trato | En venta · En renta | Pestañas del buscador y del nav |
+| **Condición** — cómo está | Lista para habitar · Para remodelar · Obra negra · Terreno libre | Filtros (selección múltiple) |
+
+Además, `negociable: true` marca que el precio admite negociación: se muestra junto al
+precio, no entre las categorías, porque no es una categoría.
+
+**Etiquetas de color.** Cada tipo tiene su par fondo/texto, todos verificados por encima
+de 4.5:1 a 11 px: Casa (olivo), Departamento (gris cálido), Terreno (ocre), Casa de
+descanso (verde azulado), Para remodelar (terracota), Obra negra (piedra), Acceso
+anticipado (carbón). Nunca más de dos etiquetas sobre la fotografía.
+
+El nav se simplificó a **Comprar · Rentar · Oportunidades · Nosotros**: los tipos viven
+en los filtros, no duplicados en la navegación. *Inversión* desapareció porque no
+filtraba nada — era la misma lista reordenada.
+
+## Auditoría de heurísticas (Nielsen)
+
+Lo que se encontró y se corrigió:
+
+| Heurística | Hallazgo | Corrección |
+|---|---|---|
+| 1 · Visibilidad del estado | El conteo decía el lugar pero no la operación; en el teléfono no se veía si estabas en venta o renta | "10 propiedades **en venta** en Ciudad de México" y las pestañas de operación visibles desde 320 px |
+| 3 · Control y libertad | Eliminar un interesado o retirar una propiedad era irreversible | Ambos avisan con **Deshacer** durante 7 segundos y restauran el registro completo |
+| 4 · Consistencia | Los tipos mezclaban plural y singular, y la condición vivía dentro del tipo | Tres ejes con nombres en singular |
+| 5 · Prevención de errores | Publicar dos veces el mismo título y zona **sobrescribía** la propiedad anterior sin avisar | Se numera el identificador y el aviso dice cómo quedó publicada |
+| 9 · Recuperarse de errores | El estado vacío no decía qué filtro lo causaba; y si el navegador bloquea el almacenamiento, guardar fallaba en silencio | El vacío nombra los filtros activos y ofrece quitarlos; el almacenamiento bloqueado ahora avisa |
+| 10 · Ayuda | "Obra negra" o "Terreno libre" son términos del gremio sin explicación | Glosa de las cuatro condiciones dentro del panel de filtros |
+
+Un defecto encontrado al probar la corrección de la heurística 3: el aviso tenía
+`pointer-events: none` y al mostrarse nunca lo recuperaba, así que **su botón era
+inalcanzable**. Afectaba a cualquier acción dentro de un aviso.
+
 ## Pantallas
 
 | Ruta | Pantalla |

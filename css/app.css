@@ -356,6 +356,27 @@ body { padding-bottom: calc(var(--bottomnav-h) + var(--safe-b)); }
 .card--compact .card__body { padding: var(--space-md); }
 .card--compact .card__price { font-size: var(--fs-body); }
 
+/* ---------- Etiquetas de categoría y estado ---------- */
+.tags { position: absolute; left: var(--space-sm); bottom: var(--space-sm); z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 96px); }
+.tag {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 9px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+}
+.tag--casa { background: var(--tag-casa-bg); color: var(--tag-casa-fg); }
+.tag--departamento { background: var(--tag-depto-bg); color: var(--tag-depto-fg); }
+.tag--terreno { background: var(--tag-terreno-bg); color: var(--tag-terreno-fg); }
+.tag--descanso { background: var(--tag-descanso-bg); color: var(--tag-descanso-fg); }
+.tag--remodelar { background: var(--tag-remodelar-bg); color: var(--tag-remodelar-fg); }
+.tag--obra { background: var(--tag-obra-bg); color: var(--tag-obra-fg); }
+.tag--anticipado { background: var(--tag-anticipado-bg); color: var(--tag-anticipado-fg); }
+/* El precio negociable no es una categoría: va junto al precio, con contorno. */
+.tag--negociable {
+  background: var(--bg-surface); color: var(--action-primary);
+  border: 1px solid var(--action-primary); letter-spacing: .06em;
+}
+.precio-fila { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+
 .fav {
   position: absolute; top: var(--space-xs); right: var(--space-xs);
   width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
@@ -378,7 +399,7 @@ body { padding-bottom: calc(var(--bottomnav-h) + var(--safe-b)); }
 /* ---------- Toolbar de resultados ---------- */
 .toolbar { position: sticky; top: var(--header-h); z-index: 30; background: var(--bg-page); border-bottom: 1px solid var(--border-default); }
 .toolbar__inner { padding-block: var(--space-sm); display: grid; gap: var(--space-sm); }
-.searchline { display: flex; align-items: center; gap: var(--space-xs); }
+.searchline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
 .searchline__input {
   flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--space-xs);
   min-height: 48px; padding-inline: var(--space-sm); cursor: text;
@@ -402,8 +423,15 @@ body { padding-bottom: calc(var(--bottomnav-h) + var(--safe-b)); }
   border: 1px solid var(--border-default); border-radius: var(--radius-md);
   font-size: var(--fs-small); color: var(--text-primary);
 }
-.toolbar__desktop { display: none; }
-@media (min-width: 640px) { .toolbar__desktop { display: flex; gap: var(--space-xs); } }
+/* La operación activa debe verse también en el teléfono: es el filtro que más
+   cambia el resultado y antes solo aparecía de 640 px en adelante. Debajo de
+   600 px ocupa su propia fila, si no empuja al botón de filtros fuera de pantalla. */
+.toolbar__op { display: flex; gap: var(--space-xs); flex: 1 0 100%; }
+.toolbar__op .chip { flex: 1 1 0; justify-content: center; }
+@media (min-width: 600px) {
+  .toolbar__op { flex: 0 0 auto; }
+  .toolbar__op .chip { flex: 0 0 auto; }
+}
 
 .results { padding-block: var(--space-lg) var(--space-4xl); }
 
@@ -575,7 +603,8 @@ body.has-actionbar { padding-bottom: calc(80px + var(--bottomnav-h) + var(--safe
   font-size: var(--fs-small); font-weight: 500; border-radius: var(--radius-md); box-shadow: var(--shadow-md);
   transition: opacity var(--duration-hover) var(--ease), transform var(--duration-hover) var(--ease);
 }
-.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+/* Sin recuperar pointer-events el aviso es decorativo: su acción no se puede tocar. */
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
 body.has-actionbar .toast { bottom: calc(var(--bottomnav-h) + 80px + var(--safe-b)); }
 
 /* ---------- Footer ---------- */
@@ -860,3 +889,12 @@ body.is-admin .footer { display: none; }
 .perfil__panel { padding-block: var(--space-xl) var(--space-3xl); }
 /* El tablero necesita todo el ancho aunque viva dentro del contenedor. */
 .kanban-wrap { margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); }
+
+/* Aviso con acción: permite deshacer un borrado sin buscar dónde. */
+.toast { display: flex; align-items: center; gap: var(--space-md); }
+.toast__accion {
+  flex: 0 0 auto; background: none; border: 0; padding: 6px 2px; min-height: 32px;
+  color: var(--color-sand); font-size: var(--fs-small); font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.toast__accion:hover { color: var(--color-white); }

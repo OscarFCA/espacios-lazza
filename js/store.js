@@ -136,9 +136,21 @@
     return d;
   }
 
+  /* Si el navegador bloquea el almacenamiento (modo privado, cuota llena), hay que
+     decirlo: en silencio la persona cree que guardó y pierde su trabajo. */
+  var avisar = null, yaAviso = false;
+  function alAvisar(fn) { avisar = fn; }
+
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(db)); }
-    catch (e) { console.warn("No se pudo guardar: almacenamiento lleno o bloqueado", e); }
+    try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
+    catch (e) {
+      console.warn("No se pudo guardar", e);
+      if (!yaAviso && avisar) {
+        yaAviso = true;
+        avisar("Este navegador no permite guardar: lo que hagas se perderá al cerrar.");
+      }
+      return false;
+    }
   }
 
   /* Semilla: sin ella el Kanban nace vacío y no se puede evaluar el flujo.
@@ -367,9 +379,21 @@
     l.actualizado = hoy();
     save();
   }
+  /* Devuelve lo borrado para poder deshacerlo: un borrado accidental no debe
+     ser definitivo (heurística de control y libertad). */
   function borrarLead(id) {
-    db.leads = db.leads.filter(function (l) { return l.id !== id; });
+    var l = lead(id);
+    db.leads = db.leads.filter(function (x) { return x.id !== id; });
     save();
+    return l;
+  }
+  function restaurarLead(l) {
+    if (!l) return;
+    db.leads.push(l);
+    save();
+  }
+  function existeSlug(slug) {
+    return catalogoCompleto().some(function (p) { return p.slug === slug; });
   }
 
   /* ---------------------------- propiedades ----------------------------- */
@@ -438,12 +462,13 @@
   window.Store = {
     ETAPAS: ETAPAS,
     registrar: registrar, validarRegistro: validarRegistro, sesion: sesion, salir: salir,
-    buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion, DEMO: DEMO,
+    buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion, DEMO: DEMO, alAvisar: alAvisar,
     usuarios: function () { return db.usuarios.slice(); },
     favoritos: favoritos, alternarFavorito: alternarFavorito,
     registrarActividad: registrarActividad, actividad: function () { return db.actividad.slice(); },
     actividadDe: actividadDe, actividadDeSlug: actividadDeSlug,
-    leads: leads, lead: lead, actualizarLead: actualizarLead, moverLead: moverLead, borrarLead: borrarLead,
+    leads: leads, lead: lead, actualizarLead: actualizarLead, moverLead: moverLead,
+    borrarLead: borrarLead, restaurarLead: restaurarLead, existeSlug: existeSlug,
     agregarNota: agregarNota, borrarNota: borrarNota,
     catalogo: catalogo, catalogoCompleto: catalogoCompleto,
     oportunidades: oportunidades, esExclusiva: esExclusiva, propiedadesPropias: function () { return (db.propiedades || []).slice(); },

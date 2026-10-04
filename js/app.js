@@ -16,8 +16,9 @@
   var toastEl = document.getElementById("toast");
   var bottomnav = document.getElementById("bottomnav");
 
+  /* Tres ejes separados: qué es (tipos), cómo está (condiciones) y el trato (op). */
   var DEFAULTS = {
-    op: "venta", q: "", tipo: "Todos", remodelar: false,
+    op: "venta", q: "", tipos: [], condiciones: [], negociable: false,
     min: 0, max: 0, terrenoMin: 0, constMin: 0, rec: 0, ban: 0, autos: 0,
     sort: "Relevancia"
   };
@@ -84,12 +85,25 @@
     if (op === "renta") return Number(n).toLocaleString("es-MX") + " pesos mexicanos por mes";
     return Number(n).toLocaleString("es-MX") + " pesos mexicanos";
   }
-  function tipoLabel(p) {
-    if (p.remodelar) return p.tipo.replace(/s$/, "") + " para remodelar";
-    if (p.tipo === "Terrenos") return "Terreno";
-    return p.tipo.replace(/s$/, "");
-  }
   function opLabel(p) { return p.op === "renta" ? "En renta" : "En venta"; }
+
+  var CLASE_TIPO = {
+    "Casa": "casa", "Departamento": "departamento",
+    "Terreno": "terreno", "Casa de descanso": "descanso"
+  };
+
+  /* Etiquetas de la fotografía: la categoría siempre, y la condición solo cuando
+     dice algo que el tipo no dice (obra pendiente). Nunca más de dos. */
+  function tagsHTML(p) {
+    var t = ['<span class="tag tag--' + (CLASE_TIPO[p.tipo] || "casa") + '">' + esc(p.tipo) + "</span>"];
+    if (p.condicion === "Para remodelar") t.push('<span class="tag tag--remodelar">Para remodelar</span>');
+    else if (p.condicion === "Obra negra") t.push('<span class="tag tag--obra">Obra negra</span>');
+    else if (p.exclusiva) t.push('<span class="tag tag--anticipado">Acceso anticipado</span>');
+    return '<div class="tags">' + t.join("") + "</div>";
+  }
+  function negociableHTML(p) {
+    return p.negociable ? '<span class="tag tag--negociable">Precio negociable</span>' : "";
+  }
 
   /* Datos clave de la card con iconografía lineal (§14). */
   function facts(p) {
@@ -122,11 +136,21 @@
 
   function favCount() { return Object.keys(favs()).length; }
 
-  function toast(msg) {
-    toastEl.textContent = msg;
+  /* El aviso puede llevar una acción (deshacer). Dura más cuando la lleva: hay
+     que darle tiempo a la persona de alcanzarla. */
+  function toast(msg, opts) {
+    toastEl.innerHTML = '<span>' + esc(msg) + "</span>" +
+      (opts && opts.accion ? '<button class="toast__accion" type="button">' + esc(opts.accion) + "</button>" : "");
     toastEl.classList.add("is-on");
+    if (opts && opts.alTocar) {
+      toastEl.querySelector(".toast__accion").addEventListener("click", function () {
+        toastEl.classList.remove("is-on");
+        clearTimeout(toastTimer);
+        opts.alTocar();
+      });
+    }
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2600);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, opts && opts.accion ? 7000 : 2600);
   }
 
   /* ============================ filtrado ============================ */
@@ -135,9 +159,9 @@
     if (p.op !== f.op) return false;
     var q = (f.q || "").trim().toLowerCase();
     if (q && (p.zona + " " + p.title).toLowerCase().indexOf(q) === -1) return false;
-    if (f.tipo === "Para remodelar") { if (!p.remodelar) return false; }
-    else if (f.tipo !== "Todos" && p.tipo !== f.tipo) return false;
-    if (f.remodelar && !p.remodelar) return false;
+    if (f.tipos.length && f.tipos.indexOf(p.tipo) === -1) return false;
+    if (f.condiciones.length && f.condiciones.indexOf(p.condicion) === -1) return false;
+    if (f.negociable && !p.negociable) return false;
     if (f.min && p.price < f.min) return false;
     if (f.max && p.price > f.max) return false;
     if (f.terrenoMin && p.terreno < f.terrenoMin) return false;
@@ -161,8 +185,9 @@
 
   function activeFilterCount(f) {
     var n = 0;
-    if (f.tipo !== "Todos") n++;
-    if (f.remodelar) n++;
+    n += f.tipos.length;
+    n += f.condiciones.length;
+    if (f.negociable) n++;
     if (f.min || f.max) n++;
     if (f.terrenoMin) n++;
     if (f.constMin) n++;
@@ -175,8 +200,9 @@
   function chips(f) {
     var c = [];
     if (f.q.trim()) c.push({ key: "q", label: f.q.trim() });
-    if (f.tipo !== "Todos") c.push({ key: "tipo", label: f.tipo });
-    if (f.remodelar) c.push({ key: "remodelar", label: "Para remodelar" });
+    f.tipos.forEach(function (t) { c.push({ key: "tipo:" + t, label: t }); });
+    f.condiciones.forEach(function (t) { c.push({ key: "cond:" + t, label: t }); });
+    if (f.negociable) c.push({ key: "negociable", label: "Precio negociable" });
     if (f.min && f.max) c.push({ key: "precio", label: "$" + f.min.toLocaleString("en-US") + " – $" + f.max.toLocaleString("en-US") });
     else if (f.max) c.push({ key: "precio", label: "Hasta $" + f.max.toLocaleString("en-US") });
     else if (f.min) c.push({ key: "precio", label: "Desde $" + f.min.toLocaleString("en-US") });
@@ -190,12 +216,17 @@
 
   /* ============================ ruteo ============================ */
 
-  var QUERY_KEYS = ["op", "q", "tipo", "remodelar", "min", "max", "terrenoMin", "constMin", "rec", "ban", "autos", "sort"];
+  var QUERY_KEYS = ["op", "q", "tipos", "condiciones", "negociable", "min", "max", "terrenoMin", "constMin", "rec", "ban", "autos", "sort"];
+  var QUERY_LISTAS = ["tipos", "condiciones"];
 
   function toQuery() {
     var qs = [];
     QUERY_KEYS.forEach(function (k) {
       var v = state[k];
+      if (QUERY_LISTAS.indexOf(k) >= 0) {
+        if (v && v.length) qs.push(k + "=" + encodeURIComponent(v.join("|")));
+        return;
+      }
       if (v === DEFAULTS[k] || v === "" || v === 0 || v === false) return;
       qs.push(encodeURIComponent(k) + "=" + encodeURIComponent(v === true ? "1" : v));
     });
@@ -203,14 +234,18 @@
   }
 
   function applyQuery(qs) {
-    var f = Object.assign({}, DEFAULTS);
+    var f = Object.assign({}, DEFAULTS, { tipos: [], condiciones: [] });
     (qs || "").replace(/^\?/, "").split("&").forEach(function (pair) {
       if (!pair) return;
       var i = pair.indexOf("=");
       var k = decodeURIComponent(i < 0 ? pair : pair.slice(0, i));
       var v = decodeURIComponent(i < 0 ? "" : pair.slice(i + 1));
       if (QUERY_KEYS.indexOf(k) === -1) return;
-      if (typeof DEFAULTS[k] === "number") f[k] = Number(v) || 0;
+      if (QUERY_LISTAS.indexOf(k) >= 0) {
+        var validos = k === "tipos" ? CAT.tipos : CAT.condiciones;
+        f[k] = v.split("|").filter(function (x) { return validos.indexOf(x) >= 0; });
+      }
+      else if (typeof DEFAULTS[k] === "number") f[k] = Number(v) || 0;
       else if (typeof DEFAULTS[k] === "boolean") f[k] = v === "1" || v === "true";
       else f[k] = v;
     });
@@ -344,8 +379,7 @@
     var compact = variant === "compact";
     return '' +
       '<article class="card' + (compact ? " card--compact" : "") + '" data-slug="' + esc(p.slug) + '">' +
-        '<div class="card__media">' + photoHTML(p, 0) +
-          '<p class="card__badge">' + esc(p.badge) + '</p>' +
+        '<div class="card__media">' + photoHTML(p, 0) + tagsHTML(p) +
           (compact ? "" : '<p class="card__count">1/' + p.fotosCount + '</p>') +
           '<button class="icon-btn fav" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "Quitar de guardados" : "Guardar propiedad") + ': ' + esc(p.title) + '">' + favIcon(fav) + '</button>' +
         '</div>' +
@@ -353,7 +387,9 @@
           '<p class="card__tipo">' + esc(opLabel(p)) + '</p>' +
           '<h3 class="card__title"><a href="#/propiedad/' + esc(p.slug) + '" data-action="open" data-slug="' + esc(p.slug) + '">' + esc(p.title) + '</a></h3>' +
           '<p class="card__zona">' + esc(p.zona) + '</p>' +
-          '<p class="card__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
+          '<p class="card__price precio-fila"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span>' +
+            '<span class="sr-only">' + esc(priceLabel(p.price, p.op)) + (p.negociable ? ", precio negociable" : "") + '</span>' +
+            (compact ? "" : negociableHTML(p)) + '</p>' +
           (compact ? "" : factsHTML(p)) +
         '</div>' +
       '</article>';
@@ -405,7 +441,10 @@
         '</label>' +
         '<label class="searchbar__field">' +
           '<span class="searchbar__label">Tipo de propiedad</span>' +
-          '<select id="tipo-home" name="tipo">' + optionsHTML(CAT.tipos, state.tipo) + '</select>' +
+          '<select id="tipo-home" name="tipo">' +
+            '<option value="">Todos los tipos</option>' +
+            optionsHTML(CAT.tipos, state.tipos.length === 1 ? state.tipos[0] : "") +
+          '</select>' +
         '</label>' +
         '<label class="searchbar__field">' +
           '<span class="searchbar__label">Precio máximo</span>' +
@@ -415,11 +454,12 @@
       '</form>' +
 
       '<div class="chiprow" aria-label="Búsquedas rápidas">' +
-        quick("Casas", { tipo: "Casas" }) +
-        quick("Terrenos", { tipo: "Terrenos" }) +
-        quick("Para remodelar", { remodelar: true, tipo: "Todos" }) +
-        quick("Departamentos", { tipo: "Departamentos" }) +
-        quick("Inversión", { tipo: "Todos", sort: "Mayor terreno" }) +
+        quick("Casas", { tipos: ["Casa"] }) +
+        quick("Departamentos", { tipos: ["Departamento"] }) +
+        quick("Terrenos", { tipos: ["Terreno"] }) +
+        quick("Casas de descanso", { tipos: ["Casa de descanso"] }) +
+        quick("Para remodelar", { condiciones: ["Para remodelar"] }) +
+        quick("Precio negociable", { negociable: true }) +
       '</div>' +
 
       '<div class="herophoto">' +
@@ -481,7 +521,7 @@
     '<div class="toolbar">' +
       '<div class="container toolbar__inner">' +
         '<div class="searchline">' +
-          '<div class="toolbar__desktop" role="tablist" aria-label="Operación">' +
+          '<div class="toolbar__op" role="tablist" aria-label="Operación">' +
             '<button class="chip' + (state.op === "venta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
             '<button class="chip' + (state.op === "renta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
           '</div>' +
@@ -521,8 +561,15 @@
       body = '<div class="grid">' + skeletonHTML(6) + "</div>";
     } else if (!results.length) {
       body = '<div class="state"><h3>No encontramos propiedades con esos filtros.</h3>' +
-        '<p>Prueba ampliando la zona o el rango de precio.</p>' +
-        '<button class="btn btn--primary" data-action="filters-open">Modificar filtros</button></div>';
+        (cs.length
+          ? '<p>Están activos: ' + cs.map(function (c) { return esc(c.label); }).join(", ") + '.</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+              '<button class="btn btn--primary" data-action="clear-all">Quitar todos los filtros</button>' +
+              '<button class="btn btn--secondary" data-action="filters-open">Ajustarlos</button>' +
+            '</div>'
+          : '<p>Prueba con otra zona o cambia de Comprar a Rentar.</p>' +
+            '<button class="btn btn--primary" data-action="filters-open">Abrir filtros</button>') +
+      '</div>';
     } else {
       body = '<div class="grid">' + results.map(function (p) { return cardHTML(p); }).join("") + "</div>";
     }
@@ -532,7 +579,8 @@
 
   function countLine(results) {
     var where = state.q.trim() ? " en " + state.q.trim() : " en Ciudad de México";
-    return results.length + (results.length === 1 ? " propiedad" : " propiedades") + where;
+    var trato = state.op === "renta" ? " en renta" : " en venta";
+    return results.length + (results.length === 1 ? " propiedad" : " propiedades") + trato + where;
   }
 
   /* ---------- Guardados ---------- */
@@ -698,7 +746,8 @@
       ["Recámaras", p.rec || "—"],
       ["Baños", p.ban || "—"],
       ["Estacionamientos", p.autos || "—"],
-      ["Estado", p.remodelar ? "Para remodelar" : "Habitable / libre"]
+      ["Condición", p.condicion],
+      ["Precio", p.negociable ? "Negociable" : "Fijo"]
     ];
 
     var similares = DATA.filter(function (x) { return x.slug !== p.slug && x.tipo === p.tipo && x.op === p.op; }).slice(0, 3);
@@ -713,6 +762,7 @@
       '</nav>' +
 
       '<div class="gallery" id="gallery">' +
+        tagsHTML(p) +
         '<div class="gallery__track" id="gallery-track" tabindex="0" role="region" aria-label="Galería de ' + esc(p.title) + ' — desliza para ver más">' + slides + '</div>' +
         '<p class="gallery__counter" id="gallery-counter" aria-live="polite">1 / ' + total + '</p>' +
         '<div class="gallery__side" aria-hidden="true">' +
@@ -723,7 +773,7 @@
 
       '<div class="detail__head">' +
         '<div>' +
-          '<p class="eyebrow">' + esc(opLabel(p)) + ' · ' + esc(p.badge) + '</p>' +
+          '<p class="eyebrow">' + esc(opLabel(p)) + ' · ' + esc(p.condicion) + '</p>' +
           '<h1>' + esc(p.title) + '</h1>' +
           '<p class="detail__zona">' + esc(p.zona) + '</p>' +
         '</div>' +
@@ -735,7 +785,9 @@
 
       '<div class="detail__layout">' +
         '<div>' +
-          '<p class="detail__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
+          '<div class="detail__price precio-fila"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span>' +
+            '<span class="sr-only">' + esc(priceLabel(p.price, p.op)) + (p.negociable ? ", precio negociable" : "") + '</span>' +
+            negociableHTML(p) + '</div>' +
           '<p class="detail__pricemeta">' + esc(metaLine(p)) + '</p>' +
           '<hr class="rule" style="margin-top:32px">' +
 
@@ -788,12 +840,12 @@
 
   /* ---------- Navegación ---------- */
 
+  /* Dos entradas de catálogo (el trato) y dos de contenido. Los tipos viven en
+     los filtros y en los accesos rápidos, no duplicados en el nav. */
   function navItems() {
     return [
-      { label: "Comprar", on: state.screen === "results" && state.op === "venta", patch: { op: "venta", tipo: "Todos", remodelar: false } },
-      { label: "Rentar", on: state.op === "renta", patch: { op: "renta", tipo: "Todos", remodelar: false } },
-      { label: "Terrenos", on: state.tipo === "Terrenos", patch: { tipo: "Terrenos" } },
-      { label: "Inversión", on: state.sort === "Mayor terreno", patch: { tipo: "Todos", sort: "Mayor terreno" } }
+      { label: "Comprar", on: state.screen === "results" && state.op === "venta", patch: { op: "venta", tipos: [], condiciones: [] } },
+      { label: "Rentar", on: state.op === "renta", patch: { op: "renta", tipos: [], condiciones: [] } }
     ];
   }
 
@@ -876,11 +928,11 @@
       homeForm.addEventListener("submit", function (e) {
         e.preventDefault();
         state.q = homeForm.q.value;
-        state.tipo = homeForm.tipo.value;
+        state.tipos = homeForm.tipo.value ? [homeForm.tipo.value] : [];
         state.max = Number(homeForm.max.value) || 0;
         go("results");
       });
-      homeForm.tipo.addEventListener("change", function () { state.tipo = this.value; });
+      homeForm.tipo.addEventListener("change", function () { state.tipos = this.value ? [this.value] : []; });
       homeForm.max.addEventListener("change", function () { state.max = Number(this.value) || 0; });
     }
 
@@ -951,6 +1003,16 @@
 
   /* ============================ bottom sheet de filtros ============================ */
 
+  /* Grupo de selección múltiple: tipo y condición admiten varios a la vez. */
+  function listaChips(name, valores, seleccion) {
+    return '<div class="optionrow" role="group" aria-label="' + esc(name === "tipos" ? "Tipo de propiedad" : "Condición") + '">' +
+      valores.map(function (v) {
+        var on = seleccion.indexOf(v) >= 0;
+        return '<button type="button" class="chip' + (on ? " is-on" : "") + '" data-toggle="' + name + '" ' +
+          'data-value="' + esc(v) + '" aria-pressed="' + on + '">' + esc(v) + "</button>";
+      }).join("") + "</div>";
+  }
+
   function optionChips(name, value, opts) {
     return '<div class="optionrow" role="group" aria-label="' + esc(name) + '">' + opts.map(function (o) {
       return '<button type="button" class="chip' + (Number(value) === o.v ? " is-on" : "") + '" data-draft="' + esc(name) + '" data-value="' + o.v + '" aria-pressed="' + (Number(value) === o.v) + '">' + esc(o.l) + "</button>";
@@ -979,13 +1041,19 @@
 
       '<fieldset class="fieldset">' +
         '<legend>Tipo de propiedad</legend>' +
-        '<div class="field">' +
-          '<label class="sr-only" for="f-tipo">Tipo de propiedad</label>' +
-          '<select id="f-tipo" data-draft="tipo">' + optionsHTML(CAT.tipos, draft.tipo) + '</select>' +
-        '</div>' +
-        '<div class="switch" style="margin-top:12px">' +
-          '<label for="f-remodelar">Solo propiedades para remodelar</label>' +
-          '<input type="checkbox" id="f-remodelar" data-draft="remodelar"' + (draft.remodelar ? " checked" : "") + '>' +
+        listaChips("tipos", CAT.tipos, draft.tipos) +
+        '<p class="small" style="color:var(--text-secondary);margin-top:8px">Puedes elegir más de uno.</p>' +
+      '</fieldset>' +
+
+      '<fieldset class="fieldset">' +
+        '<legend>Condición</legend>' +
+        listaChips("condiciones", CAT.condiciones, draft.condiciones) +
+        '<p class="small" style="color:var(--text-secondary);margin-top:8px">' +
+          'Lista para habitar: se puede ocupar tal cual · Para remodelar: necesita intervención · ' +
+          'Obra negra: construcción sin terminar · Terreno libre: sin construcción.</p>' +
+        '<div class="switch" style="margin-top:16px">' +
+          '<label for="f-negociable">Solo con precio negociable</label>' +
+          '<input type="checkbox" id="f-negociable" data-draft="negociable"' + (draft.negociable ? " checked" : "") + '>' +
         '</div>' +
       '</fieldset>' +
 
@@ -1038,7 +1106,7 @@
     focusFirst(sheet);
   }
   function openFilters() {
-    draft = Object.assign({}, state);
+    draft = Object.assign({}, state, { tipos: state.tipos.slice(), condiciones: state.condiciones.slice() });
     openSheet(sheetHTML());
   }
   function refreshSheet() {
@@ -1239,10 +1307,20 @@
           window.Admin.handle(at.getAttribute("data-action"), at, e)) return;
     }
 
-    var t = e.target.closest("[data-action], [data-draft], .card");
+    var t = e.target.closest("[data-action], [data-draft], [data-toggle], .card");
     if (!t) return;
 
     // Botones dentro del bottom sheet que editan el borrador
+    if (t.hasAttribute("data-toggle") && draft) {
+      var lista = t.getAttribute("data-toggle");
+      var val = t.getAttribute("data-value");
+      draft[lista] = draft[lista].indexOf(val) >= 0
+        ? draft[lista].filter(function (x) { return x !== val; })
+        : draft[lista].concat([val]);
+      refreshSheet();
+      return;
+    }
+
     if (t.hasAttribute("data-draft") && t.tagName === "BUTTON") {
       var key = t.getAttribute("data-draft");
       var val = t.getAttribute("data-value");
@@ -1340,22 +1418,23 @@
       }
       case "chip-clear": {
         var k = t.getAttribute("data-key");
-        if (k === "precio") { state.min = 0; state.max = 0; }
+        if (k.indexOf("tipo:") === 0) state.tipos = state.tipos.filter(function (x) { return x !== k.slice(5); });
+        else if (k.indexOf("cond:") === 0) state.condiciones = state.condiciones.filter(function (x) { return x !== k.slice(5); });
+        else if (k === "precio") { state.min = 0; state.max = 0; }
         else if (k === "q") state.q = "";
-        else if (k === "tipo") state.tipo = "Todos";
-        else if (k === "remodelar") state.remodelar = false;
+        else if (k === "negociable") state.negociable = false;
         else state[k] = 0;
         go("results", null, { replace: true });
         break;
       }
       case "clear-all":
-        Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort });
+        Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort, tipos: [], condiciones: [] });
         go("results", null, { replace: true });
         break;
       case "filters-open": openFilters(); break;
       case "filters-close": closeSheet(); break;
       case "filters-clear":
-        draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, q: draft.q });
+        draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, q: draft.q, tipos: [], condiciones: [] });
         refreshSheet();
         break;
       case "filters-apply":
@@ -1424,6 +1503,8 @@
     window.scrollTo(0, 0);
     main.focus({ preventScroll: true });
   });
+
+  S.alAvisar(function (msg) { toast(msg); });
 
   window.LegatoUI = {
     esc: esc, icon: icon, money: money, toast: toast, render: render,
