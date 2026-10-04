@@ -21,13 +21,16 @@
   // Sirve para que la contraseña no viaje en claro en el repositorio.
   var ADMIN_HASH = "fb39b9bcbdbb74d09f46eab5751b6cabff6e266e1d93ad0c880b638d5e658c5a";
   var ADMIN_IDS = ["info@lazza.com.mx", "5522504642"];
-  var ADMIN_NOMBRE = "Equipo Legato";
+  var ADMIN_NOMBRE = "Jaime Lavín";
   // Cuenta común de prueba, para ver el lado del usuario sin registrarse.
   var DEMO = {
-    nombre: "Daniela Ortega", correo: "demo@legato.mx", telefono: "5512345678",
+    nombre: "Elías Rico", correo: "demo@legato.mx", telefono: "5531650560",
     guardados: ["condesa-remodelar", "del-valle-terreno", "coyoacan-jardin"],
     compartida: "del-valle-terreno"
   };
+
+  // Nombres de versiones anteriores de las cuentas sembradas; se corrigen al cargar.
+  var NOMBRES_VIEJOS = ["Equipo Legato", "Daniela Ortega"];
 
   var ETAPAS = [
     { id: "nuevo", label: "Nuevo" },
@@ -53,7 +56,10 @@
       if (!raw) return sembrar(vacio());
       var d = JSON.parse(raw);
       return migrar(Object.assign(vacio(), d));
-    } catch (e) { return vacio(); }
+    } catch (e) {
+      console.warn("No se pudo leer lo guardado; se repone la base sembrada.", e);
+      return sembrar(vacio());
+    }
   }
 
   /* El campo `notas` era un texto único; ahora el seguimiento es una bitácora.
@@ -77,7 +83,10 @@
      `admin: true`. El login la reconoce por esa bandera, no por un caso especial. */
   function asegurarAdmin(d) {
     var ya = (d.usuarios || []).filter(function (u) { return u.admin; })[0];
-    if (ya) return d;
+    if (ya) {
+      if (NOMBRES_VIEJOS.indexOf(ya.nombre) >= 0) ya.nombre = ADMIN_NOMBRE;
+      return d;
+    }
     (d.usuarios = d.usuarios || []).push({
       id: uid("usr"), nombre: ADMIN_NOMBRE, correo: ADMIN_IDS[0], telefono: ADMIN_IDS[1],
       admin: true, alta: hoy()
@@ -88,7 +97,22 @@
   /* Usuario común de prueba: entra solo con su correo (sin bandera, sin
      contraseña) y ya trae propiedades guardadas para que la pantalla se vea. */
   function asegurarDemo(d) {
-    if ((d.usuarios || []).some(function (u) { return u.demo; })) return d;
+    var prev = (d.usuarios || []).filter(function (u) { return u.demo; })[0];
+    if (prev) {
+      if (NOMBRES_VIEJOS.indexOf(prev.nombre) >= 0) {
+        prev.nombre = DEMO.nombre;
+        prev.telefono = DEMO.telefono;
+        (d.leads || []).forEach(function (l) {
+          if (l.usuarioId !== prev.id) return;
+          l.nombre = DEMO.nombre;
+          l.telefono = DEMO.telefono;
+        });
+        (d.actividad || []).forEach(function (a) {
+          if (a.usuarioId === prev.id) a.nombre = DEMO.nombre;
+        });
+      }
+      return d;
+    }
     var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono, demo: true, alta: hoy() };
     (d.usuarios = d.usuarios || []).push(u);
     (d.leads = d.leads || []).push({

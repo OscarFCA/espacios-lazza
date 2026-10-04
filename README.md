@@ -79,8 +79,11 @@ equipo, el perfil ofrece además entrar al panel.
 
 | | Entra con | Qué ve |
 |---|---|---|
-| **Usuario común** | `demo@legato.mx` (sin contraseña) | Sus 3 propiedades guardadas, con su nombre en el header |
-| **Equipo** | `info@lazza.com.mx` o `5522504642` + contraseña | El panel interno con el Kanban |
+| **Usuario común** — Elías Rico | `demo@legato.mx` (sin contraseña) | Su perfil: oportunidades reservadas y sus 3 guardados |
+| **Equipo** — Jaime Lavín | `info@lazza.com.mx` o `5522504642` + contraseña | El mismo perfil, más el acceso al panel con el Kanban |
+
+Las dos cuentas usan la misma pantalla de perfil; la del equipo solo agrega el botón
+*Ir al panel*.
 
 La cuenta de prueba aparece anotada en la propia pantalla de acceso. Para quitarla
 antes de salir a producción: borra `DEMO` y `asegurarDemo` en `js/store.js` y la línea
