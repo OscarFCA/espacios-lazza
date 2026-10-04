@@ -355,18 +355,18 @@
       '</div>' +
 
       '<form class="searchbar" id="home-search" role="search">' +
-        '<div class="searchbar__field searchbar__field--wide">' +
-          '<label class="searchbar__label" for="q-home">¿Dónde buscas?</label>' +
+        '<label class="searchbar__field searchbar__field--wide">' +
+          '<span class="searchbar__label">¿Dónde buscas?</span>' +
           '<input id="q-home" name="q" type="search" enterkeyhint="search" autocomplete="off" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
-        '</div>' +
-        '<div class="searchbar__field">' +
-          '<label class="searchbar__label" for="tipo-home">Tipo de propiedad</label>' +
+        '</label>' +
+        '<label class="searchbar__field">' +
+          '<span class="searchbar__label">Tipo de propiedad</span>' +
           '<select id="tipo-home" name="tipo">' + optionsHTML(CAT.tipos, state.tipo) + '</select>' +
-        '</div>' +
-        '<div class="searchbar__field">' +
-          '<label class="searchbar__label" for="max-home">Precio máximo</label>' +
+        '</label>' +
+        '<label class="searchbar__field">' +
+          '<span class="searchbar__label">Precio máximo</span>' +
           '<select id="max-home" name="max">' + optionsHTML(maxOptions(), state.max) + '</select>' +
-        '</div>' +
+        '</label>' +
         '<button class="searchbar__submit" type="submit">Buscar</button>' +
       '</form>' +
 
@@ -441,10 +441,12 @@
             '<button class="chip' + (state.op === "venta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
             '<button class="chip' + (state.op === "renta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
           '</div>' +
-          '<form class="searchline__input" id="results-search" role="search">' +
-            icon("search", 18) +
-            '<label class="sr-only" for="q-results">Buscar por colonia, alcaldía o ciudad</label>' +
-            '<input id="q-results" name="q" type="search" enterkeyhint="search" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
+          '<form class="searchline" id="results-search" role="search" style="flex:1 1 auto;min-width:0">' +
+            '<label class="searchline__input">' +
+              icon("search", 18) +
+              '<span class="sr-only">Buscar por colonia, alcaldía o ciudad</span>' +
+              '<input id="q-results" name="q" type="search" enterkeyhint="search" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
+            '</label>' +
           '</form>' +
           '<button class="chip' + (n ? " is-on" : "") + '" data-action="filters-open" aria-haspopup="dialog">' +
             icon("filter", 17) + 'Filtros' + (n ? '<span class="filterbtn__count">' + n + "</span>" : "") +
@@ -551,7 +553,7 @@
 
       '<div class="detail__head">' +
         '<div>' +
-          '<p class="eyebrow">' + esc(tipoLabel(p)) + ' · ' + esc(p.badge) + '</p>' +
+          '<p class="eyebrow">' + esc(opLabel(p)) + ' · ' + esc(p.badge) + '</p>' +
           '<h1>' + esc(p.title) + '</h1>' +
           '<p class="detail__zona">' + esc(p.zona) + '</p>' +
         '</div>' +
@@ -633,9 +635,11 @@
     document.getElementById("nav-desktop").innerHTML = desktop;
 
     document.getElementById("nav-mobile").innerHTML = items.map(function (n) {
-      return '<button class="drawer__link" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) +
+      return '<button class="drawer__link drawer__link--dup" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) +
         (n.on ? '<span class="sr-only"> (activo)</span>' : "") + "</button>";
-    }).join("") + '<button class="drawer__link" data-action="nosotros">Nosotros</button>';
+    }).join("") +
+      '<button class="drawer__link drawer__link--dup" data-action="nosotros">Nosotros</button>' +
+      '<button class="drawer__link" data-action="favs">Guardados' + (favCount() ? " (" + favCount() + ")" : "") + "</button>";
 
     var tabs = [
       { key: "home", label: "Inicio", ico: "home", action: "home" },

@@ -62,6 +62,20 @@ El §23 pide 4.5:1 en texto normal y el propio sistema no lo alcanza en dos pare
 
 `css/tokens.css` documenta ambos en el lugar donde se definen.
 
+## Escalera responsive
+
+Tres patrones, no uno estirado:
+
+| Rango | Navegación | Buscador | Resultados | Ficha |
+|---|---|---|---|---|
+| **< 768** teléfono | Barra inferior (Inicio · Buscar · Guardados · Perfil) + menú lateral | Campos apilados | 1 col (2 desde 640) | 1 col + barra de acción fija |
+| **768–1023** tablet | Nav en el header + menú para Cuenta/Publicar | Rejilla 2×2 | 2 col | 2 col, galería 2/3 + 1/3, asesor sticky |
+| **≥ 1024** escritorio | Nav + Cuenta + CTA | Barra horizontal única (§20) | 3 col | 2 col con más aire |
+
+Verificado en 320, 360, 390, 430, 768, 820, 1024, 1180 y 1440 px, más teléfono en
+horizontal (844×390), que reduce la altura del cromo para no comerse la pantalla.
+Ninguna pantalla produce scroll horizontal.
+
 ## Mobile first
 
 - **Bottom nav** (§21): Inicio · Buscar · Guardados · Perfil, con contador de guardados.
@@ -75,7 +89,10 @@ El §23 pide 4.5:1 en texto normal y el propio sistema no lo alcanza en dos pare
 - **Cards full-width** en móvil → 2 columnas a 640 px → 3 a 1024 px. Toda la card es
   objetivo táctil; el marcador conserva acción propia.
 - **Ficha**: galería deslizable con contador y barra de acción fija apoyada sobre el
-  bottom nav. En desktop, galería 2/3 + dos secundarias y asesor en columna sticky.
+  bottom nav. Desde tablet, galería 2/3 + dos secundarias y asesor en columna sticky.
+- **Objetivo táctil real**: los campos del buscador son `<label>` que envuelven al
+  control, así que tocar el rótulo o el icono enfoca; antes solo respondía el input
+  (28 px de alto). Ningún control baja de 44 px en `pointer: coarse`.
 
 ## Accesibilidad (WCAG 2.2 AA)
 

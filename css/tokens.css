@@ -44,7 +44,7 @@
   --font-primary: "Plus Jakarta Sans", "Inter", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
 
   /* Escala tipográfica: móvil → valores de escritorio del §5 */
-  --fs-display-xl: clamp(38px, 8.4vw, 64px);
+  --fs-display-xl: clamp(34px, 8.4vw, 64px);
   --fs-h1: clamp(32px, 6.2vw, 48px);
   --fs-h2: clamp(26px, 4.4vw, 36px);
   --fs-h3: clamp(22px, 3.2vw, 28px);
@@ -93,11 +93,13 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
+/* A partir de tablet la navegación vive en el header: la barra inferior
+   (patrón de app, §21) se reserva para teléfono. */
 @media (min-width: 768px) {
-  :root { --gutter: 32px; }
+  :root { --gutter: 32px; --header-h: 68px; --bottomnav-h: 0px; }
 }
 @media (min-width: 1024px) {
-  :root { --gutter: 48px; --header-h: 72px; --container: 1440px; --bottomnav-h: 0px; }
+  :root { --gutter: 48px; --header-h: 72px; --container: 1440px; }
 }
 @media (min-width: 1280px) {
   :root { --gutter: 80px; }
