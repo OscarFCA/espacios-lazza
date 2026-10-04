@@ -507,7 +507,7 @@
       '<p class="eyebrow">Tu selección</p>' +
       '<h1 style="margin-top:12px">Guardados</h1>' +
       (saved.length
-        ? '<p class="lead" style="margin-top:12px">' + saved.length + (saved.length === 1 ? " propiedad guardada" : " propiedades guardadas") + ' en este dispositivo.</p>' +
+        ? '<p class="lead" style="margin-top:12px">' + saved.length + (saved.length === 1 ? " propiedad guardada" : " propiedades guardadas") + ' en tu cuenta.</p>' +
           '<div class="grid" style="margin-top:32px">' + saved.map(function (p) { return cardHTML(p); }).join("") + "</div>"
         : '<div class="state" style="margin-top:24px"><h3>Aún no guardas propiedades.</h3>' +
           '<p>Toca el marcador de una propiedad para conservarla aquí y compararla después.</p>' +
@@ -992,6 +992,9 @@
         '</form>'
       : '<p class="lead">Entra a tu cuenta para ver tus propiedades guardadas.</p>' +
         '<form id="login-form" style="display:grid;gap:16px;margin-top:20px">' + campoId + '</form>' +
+        // Prototipo: cuenta de prueba a la mano para revisar el lado del usuario.
+        '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
+          'Cuenta de prueba: <strong>' + esc(S.DEMO.correo) + '</strong> (sin contraseña).</p>' +
         (error === "no-existe"
           ? '<button class="btn btn--line btn--block" data-action="signup" style="margin-top:4px">Crear cuenta con estos datos</button>'
           : "");

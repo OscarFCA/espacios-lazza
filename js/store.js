@@ -22,6 +22,12 @@
   var ADMIN_HASH = "fb39b9bcbdbb74d09f46eab5751b6cabff6e266e1d93ad0c880b638d5e658c5a";
   var ADMIN_IDS = ["info@lazza.com.mx", "5522504642"];
   var ADMIN_NOMBRE = "Equipo Legato";
+  // Cuenta común de prueba, para ver el lado del usuario sin registrarse.
+  var DEMO = {
+    nombre: "Daniela Ortega", correo: "demo@legato.mx", telefono: "5512345678",
+    guardados: ["condesa-remodelar", "del-valle-terreno", "coyoacan-jardin"],
+    compartida: "del-valle-terreno"
+  };
 
   var ETAPAS = [
     { id: "nuevo", label: "Nuevo" },
@@ -54,6 +60,7 @@
      Lo que ya estuviera escrito se conserva como la primera entrada. */
   function migrar(d) {
     asegurarAdmin(d);
+    asegurarDemo(d);
     (d.leads || []).forEach(function (l) {
       if (!Array.isArray(l.seguimiento)) {
         l.seguimiento = [];
@@ -74,6 +81,33 @@
     (d.usuarios = d.usuarios || []).push({
       id: uid("usr"), nombre: ADMIN_NOMBRE, correo: ADMIN_IDS[0], telefono: ADMIN_IDS[1],
       admin: true, alta: hoy()
+    });
+    return d;
+  }
+
+  /* Usuario común de prueba: entra solo con su correo (sin bandera, sin
+     contraseña) y ya trae propiedades guardadas para que la pantalla se vea. */
+  function asegurarDemo(d) {
+    if ((d.usuarios || []).some(function (u) { return u.demo; })) return d;
+    var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono, demo: true, alta: hoy() };
+    (d.usuarios = d.usuarios || []).push(u);
+    (d.leads = d.leads || []).push({
+      id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
+      correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
+      origen: DEMO.guardados[0], alta: hoy(), actualizado: hoy(), demo: true
+    });
+    d.favoritos = d.favoritos || {};
+    d.favoritos[u.id] = {};
+    DEMO.guardados.forEach(function (slug, i) {
+      var f = new Date(Date.now() - (DEMO.guardados.length - i) * 86400000).toISOString();
+      d.favoritos[u.id][slug] = f;
+      (d.actividad = d.actividad || []).unshift({
+        id: uid("act"), tipo: "guardado", usuarioId: u.id, nombre: u.nombre, slug: slug, fecha: f, demo: true
+      });
+    });
+    d.actividad.unshift({
+      id: uid("act"), tipo: "compartido", usuarioId: u.id, nombre: u.nombre,
+      slug: DEMO.compartida, fecha: hoy(), demo: true
     });
     return d;
   }
@@ -130,6 +164,7 @@
       });
     });
     asegurarAdmin(d);
+    asegurarDemo(d);
     d.seed = true;
     return d;
   }
@@ -366,7 +401,7 @@
   window.Store = {
     ETAPAS: ETAPAS,
     registrar: registrar, validarRegistro: validarRegistro, sesion: sesion, salir: salir,
-    buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion,
+    buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion, DEMO: DEMO,
     usuarios: function () { return db.usuarios.slice(); },
     favoritos: favoritos, alternarFavorito: alternarFavorito,
     registrarActividad: registrarActividad, actividad: function () { return db.actividad.slice(); },

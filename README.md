@@ -55,6 +55,17 @@ cuántas lleva.
 El Kanban se mueve arrastrando con el ratón y, en táctil y teclado, con el selector de
 etapa que lleva cada tarjeta.
 
+### Cuentas de prueba
+
+| | Entra con | Qué ve |
+|---|---|---|
+| **Usuario común** | `demo@legato.mx` (sin contraseña) | Sus 3 propiedades guardadas, con su nombre en el header |
+| **Equipo** | `info@lazza.com.mx` o `5522504642` + contraseña | El panel interno con el Kanban |
+
+La cuenta de prueba aparece anotada en la propia pantalla de acceso. Para quitarla
+antes de salir a producción: borra `DEMO` y `asegurarDemo` en `js/store.js` y la línea
+de la cuenta de prueba en `loginHTML` de `js/app.js`.
+
 > ### Límites de esta versión
 >
 > No hay servidor: **todo vive en el `localStorage` del navegador**. En la práctica:
