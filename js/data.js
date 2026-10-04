@@ -1,5 +1,8 @@
 /* Legato Capital — Catálogo de propiedades (prototipo).
  *
+ * `exclusiva: true` marca una oportunidad con acceso anticipado: no aparece en la
+ * búsqueda pública y su ficha solo abre con cuenta.
+ *
  * Para publicar fotografía real: agrega `fotos: [{ src, alt }, ...]` a la propiedad.
  * Para apuntar la ubicación a un punto exacto, agrega `maps: "https://maps.app.goo.gl/..."`;
  * sin ese campo el enlace busca la zona de la ficha en Google Maps.
@@ -16,13 +19,13 @@ window.EL_DATA = [
   { slug:"coyoacan-jardin", op:"venta", tipo:"Casas", remodelar:false, title:"Casa con jardín", zona:"Coyoacán Centro, Coyoacán", price:18500000, terreno:460, construido:320, rec:4, ban:3, autos:2, frente:"16 m", badge:"NUEVA", fotosCount:18, nuevo:1, x:66, y:78, fotos:[],
     desc:"Casa de un nivel con jardín arbolado, doble altura en estancia y ventanales orientados al poniente.",
     potencial:"La proporción entre terreno y construcción deja 140 m² libres para ampliación o estudio independiente en planta baja." },
-  { slug:"santa-fe-esquina", op:"venta", tipo:"Terrenos", remodelar:false, title:"Terreno en esquina", zona:"Santa Fe, Álvaro Obregón", price:24000000, terreno:1200, construido:0, rec:0, ban:0, autos:0, frente:"28 m", badge:"OPORTUNIDAD", fotosCount:6, nuevo:4, x:14, y:44, fotos:[],
+  { slug:"santa-fe-esquina", exclusiva:true, op:"venta", tipo:"Terrenos", remodelar:false, title:"Terreno en esquina", zona:"Santa Fe, Álvaro Obregón", price:24000000, terreno:1200, construido:0, rec:0, ban:0, autos:0, frente:"28 m", badge:"OPORTUNIDAD", fotosCount:6, nuevo:4, x:14, y:44, fotos:[],
     desc:"Predio en esquina con doble frente y topografía ligeramente inclinada, sobre vialidad con acceso directo.",
     potencial:"1,200 m² en esquina con 28 m de frente. La doble orientación permite estudiar un proyecto de usos mixtos o vivienda en condominio, sujeto a normativa." },
   { slug:"roma-depto", op:"venta", tipo:"Departamentos", remodelar:true, title:"Departamento para remodelar", zona:"Roma Norte, Cuauhtémoc", price:6950000, terreno:0, construido:96, rec:2, ban:1, autos:1, frente:"—", badge:"PARA REMODELAR", fotosCount:10, nuevo:3, x:40, y:22, fotos:[],
     desc:"Departamento en tercer nivel de un edificio de 1962, con instalaciones originales y balcón a la calle.",
     potencial:"96 m² sin muros divisorios estructurales al interior, lo que permite reconfigurar por completo la planta." },
-  { slug:"san-angel-antigua", op:"venta", tipo:"Casas", remodelar:true, title:"Casa antigua en venta", zona:"San Ángel, Álvaro Obregón", price:27300000, terreno:620, construido:410, rec:5, ban:4, autos:3, frente:"18 m", badge:"OPORTUNIDAD", fotosCount:22, nuevo:8, x:28, y:70, fotos:[],
+  { slug:"san-angel-antigua", exclusiva:true, op:"venta", tipo:"Casas", remodelar:true, title:"Casa antigua en venta", zona:"San Ángel, Álvaro Obregón", price:27300000, terreno:620, construido:410, rec:5, ban:4, autos:3, frente:"18 m", badge:"OPORTUNIDAD", fotosCount:22, nuevo:8, x:28, y:70, fotos:[],
     desc:"Casa de cantera con patio empedrado y muros de adobe reforzado. Requiere intervención en cubiertas e instalaciones.",
     potencial:"620 m² de terreno con construcción catalogada en contexto protegido. La intervención debe plantearse como restauración con obra nueva parcial." },
   { slug:"escandon-mixto", op:"venta", tipo:"Terrenos", remodelar:false, title:"Terreno con uso mixto", zona:"Escandón, Miguel Hidalgo", price:11200000, terreno:340, construido:0, rec:0, ban:0, autos:0, frente:"12 m", badge:"TERRENO", fotosCount:5, nuevo:5, x:44, y:40, fotos:[],
@@ -43,7 +46,7 @@ window.EL_DATA = [
   { slug:"juarez-renta", op:"renta", tipo:"Departamentos", remodelar:false, title:"Departamento amueblado", zona:"Juárez, Cuauhtémoc", price:26500, terreno:0, construido:85, rec:2, ban:1, autos:1, frente:"—", badge:"NUEVA", fotosCount:9, nuevo:1, x:38, y:26, fotos:[],
     desc:"Departamento en edificio de 1958 rehabilitado, con doble altura y ventanas originales.",
     potencial:"Contrato flexible que permite adaptar un cuarto como taller o estudio." },
-  { slug:"granada-renta", op:"renta", tipo:"Terrenos", remodelar:false, title:"Terreno para proyecto temporal", zona:"Granada, Miguel Hidalgo", price:60000, terreno:700, construido:0, rec:0, ban:0, autos:0, frente:"20 m", badge:"OPORTUNIDAD", fotosCount:4, nuevo:3, x:24, y:34, fotos:[],
+  { slug:"granada-renta", exclusiva:true, op:"renta", tipo:"Terrenos", remodelar:false, title:"Terreno para proyecto temporal", zona:"Granada, Miguel Hidalgo", price:60000, terreno:700, construido:0, rec:0, ban:0, autos:0, frente:"20 m", badge:"OPORTUNIDAD", fotosCount:4, nuevo:3, x:24, y:34, fotos:[],
     desc:"Predio nivelado con barda perimetral y acometida eléctrica, disponible en renta por periodos de 12 a 36 meses.",
     potencial:"700 m² aptos para instalaciones temporales, pabellones o estacionamiento operado, sujeto a permisos." }
 ];

@@ -57,6 +57,7 @@
       external: '<path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V7.5A1.5 1.5 0 0 1 6 6h4"/>',
       close: '<path d="M6 6l12 12M18 6L6 18"/>',
       note: '<path d="M7 4h10a1 1 0 0 1 1 1v14l-6-3-6 3V5a1 1 0 0 1 1-1Z"/>',
+      lock: '<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
       alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'
     };
     return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
@@ -221,6 +222,8 @@
     if (screen === "detail") return "#/propiedad/" + state.sel;
     if (screen === "saved") return "#/guardados";
     if (screen === "admin") return "#/admin";
+    if (screen === "oportunidades") return "#/oportunidades";
+    if (screen === "perfil") return "#/perfil";
     return "#/";
   }
 
@@ -244,7 +247,14 @@
 
     if (path.indexOf("#/propiedad/") === 0) {
       var slug = decodeURIComponent(path.slice("#/propiedad/".length));
-      if (!DATA.some(function (p) { return p.slug === slug; })) { location.replace("#/"); return; }
+      if (!S.catalogoCompleto().some(function (p) { return p.slug === slug; })) { location.replace("#/"); return; }
+      if (S.esExclusiva(slug) && !S.sesion()) {
+        state.screen = "oportunidades";
+        state.sel = slug;
+        render();
+        pedirRegistro("Esta oportunidad es de acceso anticipado: crea tu cuenta para ver la ficha completa.");
+        return;
+      }
       state.screen = "detail";
       state.sel = slug;
       render();
@@ -260,6 +270,19 @@
 
     if (path.indexOf("#/guardados") === 0) {
       state.screen = "saved";
+      render();
+      return;
+    }
+
+    if (path.indexOf("#/oportunidades") === 0) {
+      state.screen = "oportunidades";
+      render();
+      return;
+    }
+
+    if (path.indexOf("#/perfil") === 0) {
+      if (!S.sesion()) { state.screen = "oportunidades"; render(); pedirLogin(); return; }
+      state.screen = "perfil";
       render();
       return;
     }
@@ -288,9 +311,16 @@
 
   /* ============================ piezas de vista ============================ */
 
-  function photoHTML(p, index, hint) {
+  function photoHTML(p, index, hint, neutro) {
     var foto = (p.fotos || [])[index];
-    if (foto) return '<img class="photo" src="' + esc(foto.src) + '" alt="' + esc(foto.alt || (p.title + " en " + p.zona)) + '" loading="lazy" decoding="async">';
+    // En el teaser la fotografía se ve, pero no puede delatar de qué propiedad es.
+    if (foto) return '<img class="photo" src="' + esc(foto.src) + '" alt="' +
+      (neutro ? "Fotografía de una oportunidad con acceso anticipado" : esc(foto.alt || (p.title + " en " + p.zona))) +
+      '" loading="lazy" decoding="async">';
+    if (neutro) {
+      return '<div class="photo photo--ph" role="img" aria-label="Fotografía de una oportunidad con acceso anticipado">' +
+        icon("image", 26) + "</div>";
+    }
     var n = index + 1, total = p.fotosCount || 1;
     return '<div class="photo photo--ph" role="img" aria-label="Fotografía ' + n + ' de ' + total + ' · ' + esc(p.title + ", " + p.zona) + ' (pendiente de publicación)">' +
       icon("image", 26) + '<span>' + esc(hint || p.title) + "</span></div>";
@@ -502,7 +532,7 @@
   /* ---------- Guardados ---------- */
 
   function viewSaved() {
-    var saved = DATA.filter(function (p) { return favs()[p.slug]; });
+    var saved = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
     return '<div class="container results">' +
       '<p class="eyebrow">Tu selección</p>' +
       '<h1 style="margin-top:12px">Guardados</h1>' +
@@ -515,10 +545,102 @@
     '</div>';
   }
 
+  /* ---------- Oportunidades (acceso anticipado) ---------- */
+
+  function teaserHTML(p) {
+    return '<article class="card teaser" data-action="oport-gate">' +
+      '<div class="card__media">' + photoHTML(p, 0, null, true) +
+        '<p class="teaser__lock">' + icon("lock", 13) + 'Acceso anticipado</p>' +
+      '</div>' +
+      '<div class="teaser__body">' +
+        '<p>Disponible con tu cuenta</p>' +
+        '<span class="teaser__blur teaser__blur--w70"></span>' +
+        '<span class="teaser__blur teaser__blur--w45"></span>' +
+      '</div>' +
+    '</article>';
+  }
+
+  function viewOportunidades() {
+    var lista = S.oportunidades();
+    var dentro = !!S.sesion();
+    return '<div class="container">' +
+      '<div class="oport__head">' +
+        '<p class="eyebrow">Acceso anticipado</p>' +
+        '<h1>Oportunidades antes que nadie.</h1>' +
+        '<p class="lead">Publicamos aquí las propiedades con mayor potencial ' +
+          (dentro ? 'antes de abrirlas al público. Tu cuenta te da acceso completo a sus fichas.'
+                  : 'antes de abrirlas al público. Puedes ver las fotografías; para abrir cada ficha necesitas una cuenta.') +
+        '</p>' +
+        (dentro ? "" :
+          '<div class="oport__cta">' +
+            '<button class="btn btn--primary" data-action="signup">Crear cuenta</button>' +
+            '<button class="btn btn--secondary" data-action="login">Iniciar sesión</button>' +
+          '</div>') +
+      '</div>' +
+
+      (dentro
+        ? '<p class="badge-pro">' + icon("bookmark", 12) + 'Tienes acceso anticipado</p>' +
+          '<div class="grid">' + lista.map(function (p) { return cardHTML(p); }).join("") + '</div>'
+        : '<div class="lockbar">' +
+            '<div class="lockbar__txt"><strong>' + lista.length + ' oportunidades reservadas</strong>' +
+              '<span>Ubicación, superficie y precio se revelan al crear tu cuenta. Es gratis y toma un minuto.</span></div>' +
+            '<div class="lockbar__cta">' +
+              '<button class="btn btn--primary" data-action="signup">Crear cuenta</button>' +
+              '<button class="btn btn--secondary" data-action="login">Iniciar sesión</button>' +
+            '</div>' +
+          '</div>' +
+          '<div class="grid">' + lista.map(teaserHTML).join("") + '</div>') +
+    '</div>';
+  }
+
+  /* ---------- Perfil ---------- */
+
+  function viewPerfil() {
+    var u = S.sesion();
+    var guardadas = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
+    var oport = S.oportunidades();
+    return '<div class="container">' +
+      '<div class="perfil__head">' +
+        '<span class="avatar avatar--lg" aria-hidden="true"><img src="assets/logo-mark-white.png" alt=""></span>' +
+        '<div class="perfil__id">' +
+          '<p class="eyebrow">Tu cuenta</p>' +
+          '<h1>' + esc(u.nombre) + '</h1>' +
+          '<p>' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
+        '</div>' +
+        '<div class="perfil__acciones">' +
+          (S.esAdmin() ? '<button class="btn btn--primary btn--sm" data-action="admin">Ir al panel</button>' : "") +
+          '<button class="btn btn--quiet btn--sm" data-action="logout">Cerrar sesión</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<section class="perfil__seccion">' +
+        '<p class="badge-pro">' + icon("lock", 12) + 'Solo para tu cuenta</p>' +
+        '<h2>Oportunidades antes que nadie</h2>' +
+        '<p class="perfil__nota">Las publicamos aquí antes de abrirlas al público.</p>' +
+        (oport.length
+          ? '<div class="grid" style="margin-top:24px">' + oport.map(function (p) { return cardHTML(p); }).join("") + '</div>'
+          : '<div class="state" style="margin-top:24px"><h3>No hay oportunidades abiertas en este momento.</h3>' +
+            '<p>En cuanto entre una, la verás aquí antes que el resto.</p></div>') +
+      '</section>' +
+
+      '<section class="perfil__seccion">' +
+        '<h2>Tus guardados</h2>' +
+        '<p class="perfil__nota">' + (guardadas.length
+          ? guardadas.length + (guardadas.length === 1 ? " propiedad guardada." : " propiedades guardadas.")
+          : "Todavía no guardas propiedades.") + '</p>' +
+        (guardadas.length
+          ? '<div class="grid" style="margin-top:24px">' + guardadas.map(function (p) { return cardHTML(p); }).join("") + '</div>'
+          : '<div class="state" style="margin-top:24px"><h3>Aún no guardas propiedades.</h3>' +
+            '<p>Toca el marcador de una propiedad para conservarla aquí.</p>' +
+            '<button class="btn btn--primary" data-action="search">Explorar propiedades</button></div>') +
+      '</section>' +
+    '</div>';
+  }
+
   /* ---------- Detalle ---------- */
 
   function viewDetail() {
-    var p = DATA.filter(function (x) { return x.slug === state.sel; })[0];
+    var p = S.catalogoCompleto().filter(function (x) { return x.slug === state.sel; })[0];
     if (!p) return '<div class="container results"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
 
     var fav = !!favs()[p.slug];
@@ -646,20 +768,26 @@
       if (!b) return;
       b.hidden = !u;
       if (!u) return;
-      b.textContent = S.esAdmin() ? "Panel · " + u.nombre.split(" ")[0] : u.nombre.split(" ")[0];
-      b.setAttribute("aria-label", "Tu cuenta: " + u.nombre);
+      if (id === "cta-cuenta-movil") b.textContent = "Mi perfil · " + u.nombre.split(" ")[0];
+      b.setAttribute("aria-label", "Tu perfil: " + u.nombre);
     });
+
+    var dot = document.getElementById("avatar-dot");
+    if (dot) dot.hidden = !(u && S.oportunidades().length);
 
     var items = navItems();
     var desktop = items.map(function (n) {
       return '<button class="navlink' + (n.on ? " is-active" : "") + '" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) + "</button>";
-    }).join("") + '<button class="navlink" data-action="nosotros">Nosotros</button>';
+    }).join("") +
+      '<button class="navlink' + (state.screen === "oportunidades" ? " is-active" : "") + '" data-action="oportunidades">Oportunidades</button>' +
+      '<button class="navlink" data-action="nosotros">Nosotros</button>';
     document.getElementById("nav-desktop").innerHTML = desktop;
 
     document.getElementById("nav-mobile").innerHTML = items.map(function (n) {
       return '<button class="drawer__link drawer__link--dup" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) +
         (n.on ? '<span class="sr-only"> (activo)</span>' : "") + "</button>";
     }).join("") +
+      '<button class="drawer__link drawer__link--dup" data-action="oportunidades">Oportunidades</button>' +
       '<button class="drawer__link drawer__link--dup" data-action="nosotros">Nosotros</button>' +
       '<button class="drawer__link" data-action="favs">Guardados' + (favCount() ? " (" + favCount() + ")" : "") + "</button>";
 
@@ -684,6 +812,8 @@
   function render() {
     refrescarDatos();
     var html = state.screen === "admin" ? window.Admin.view()
+             : state.screen === "oportunidades" ? viewOportunidades()
+             : state.screen === "perfil" ? viewPerfil()
              : state.screen === "results" ? viewResults()
              : state.screen === "detail" ? viewDetail()
              : state.screen === "saved" ? viewSaved()
@@ -693,9 +823,11 @@
     document.body.classList.toggle("is-admin", state.screen === "admin");
     document.body.classList.toggle("has-actionbar", state.screen === "detail");
     document.title = state.screen === "detail"
-      ? ((DATA.filter(function (p) { return p.slug === state.sel; })[0] || {}).title || "Propiedad") + " · Legato Capital"
+      ? ((S.catalogoCompleto().filter(function (p) { return p.slug === state.sel; })[0] || {}).title || "Propiedad") + " · Legato Capital"
       : state.screen === "results" ? "Resultados · Legato Capital"
       : state.screen === "saved" ? "Guardados · Legato Capital"
+      : state.screen === "oportunidades" ? "Oportunidades · Legato Capital"
+      : state.screen === "perfil" ? "Mi perfil · Legato Capital"
       : state.screen === "admin" ? "Administración · Legato Capital"
       : "Legato Capital · Patrimonio que trasciende";
     bindViewEvents();
@@ -1063,35 +1195,6 @@
     else toast("Listo, " + r.usuario.nombre.split(" ")[0] + ". Tu cuenta quedó creada.");
   }
 
-  function cuentaHTML() {
-    var u = S.sesion();
-    var n = favCount();
-    return '' +
-    '<div class="sheet__head">' +
-      '<h2 id="sheet-title">Tu cuenta</h2>' +
-      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
-    '</div>' +
-    '<div class="sheet__body">' +
-      '<p class="eyebrow">Sesión activa</p>' +
-      '<p style="font-size:var(--fs-h4);font-weight:600;margin-top:6px">' + esc(u.nombre) + '</p>' +
-      '<p class="small" style="color:var(--text-secondary)">' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
-      (S.esAdmin()
-        ? '<div class="admin-block"><h3>Equipo</h3>' +
-            '<p class="small">Tu cuenta tiene acceso al panel interno.</p>' +
-            '<button class="btn btn--primary btn--sm" data-action="admin" style="margin-top:12px">Ir al panel</button>' +
-          '</div>'
-        : "") +
-      '<div class="admin-block"><h3>Guardados</h3>' +
-        '<p class="small">' + (n ? n + (n === 1 ? " propiedad guardada" : " propiedades guardadas") : "Todavía no guardas propiedades") + '.</p>' +
-      '</div>' +
-      '<p class="small" style="color:var(--text-secondary)">Tu cuenta vive en este navegador mientras no exista el servidor; al cambiar de dispositivo habrá que crearla de nuevo.</p>' +
-    '</div>' +
-    '<div class="sheet__foot">' +
-      '<button class="btn btn--link" data-action="logout">Cerrar sesión</button>' +
-      '<button class="btn btn--primary" data-action="sheet-close">Listo</button>' +
-    '</div>';
-  }
-
   /* ============================ eventos ============================ */
 
   function numFrom(v) { return Number(String(v).replace(/[^0-9]/g, "")) || 0; }
@@ -1148,10 +1251,14 @@
       case "publicar": toast("Publicar propiedad estará disponible en la siguiente fase."); closeDrawer(); break;
       case "cuenta":
         closeDrawer(true);
-        if (S.sesion()) openSheet(cuentaHTML());
-        else pedirRegistro("Entra para guardar propiedades y compartirlas desde cualquier pantalla.");
+        if (S.sesion()) go("perfil");
+        else pedirLogin();
         break;
-      case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); render(); break;
+      case "oportunidades": closeDrawer(true); go("oportunidades"); break;
+      case "oport-gate":
+        pedirRegistro("Crea tu cuenta para ver esta oportunidad completa: ubicación, superficie y precio.");
+        break;
+      case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); go("home"); break;
       case "sheet-close": closeSheet(); break;
       case "admin": closeDrawer(true); go("admin"); break;
       case "registro-submit": enviarRegistro(); break;

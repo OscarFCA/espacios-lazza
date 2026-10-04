@@ -37,7 +37,10 @@
       </button>
       <button class="btn btn--secondary btn--sm header__cta" id="cta-login" data-action="login">Iniciar sesión</button>
       <button class="btn btn--primary btn--sm header__cta" id="cta-signup" data-action="signup">Crear cuenta</button>
-      <button class="btn btn--line btn--sm header__cta" id="cta-cuenta" data-action="cuenta" hidden>Cuenta</button>
+      <button class="avatar header__cta" id="cta-cuenta" data-action="cuenta" hidden aria-label="Tu perfil">
+        <img src="assets/logo-mark-white.png" alt="" aria-hidden="true">
+        <span class="avatar__dot" id="avatar-dot" hidden></span>
+      </button>
       <button class="icon-btn header__menu" data-action="menu-open" aria-label="Abrir menú" aria-expanded="false" aria-controls="drawer">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
@@ -58,7 +61,7 @@
   <div class="drawer__foot">
     <button class="btn btn--primary btn--block" id="cta-signup-movil" data-action="signup">Crear cuenta</button>
     <button class="btn btn--secondary btn--block" id="cta-login-movil" data-action="login">Iniciar sesión</button>
-    <button class="btn btn--line btn--block" id="cta-cuenta-movil" data-action="cuenta" hidden>Cuenta</button>
+    <button class="btn btn--line btn--block" id="cta-cuenta-movil" data-action="cuenta" hidden>Mi perfil</button>
     <button class="btn btn--link btn--block" data-action="publicar">Publicar propiedad</button>
     <button class="btn btn--link btn--block footer__admin" data-action="admin">Acceso equipo</button>
   </div>

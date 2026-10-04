@@ -761,3 +761,73 @@ body.is-admin .footer { display: none; }
 }
 .nota__x:hover { color: var(--color-error); }
 .nota p { font-size: var(--fs-small); line-height: 1.5; margin-top: 2px; white-space: pre-wrap; }
+
+/* ---------- Retrato del usuario ---------- */
+.avatar {
+  position: relative; width: 40px; height: 40px; flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--action-primary); border: 1px solid var(--action-primary);
+  border-radius: var(--radius-pill); padding: 0; overflow: visible;
+  transition: background var(--duration-hover) var(--ease), box-shadow var(--duration-hover) var(--ease);
+}
+.avatar img { width: 19px; height: auto; }
+.avatar:hover { background: var(--action-primary-hover); box-shadow: 0 0 0 3px var(--focus-halo); }
+.avatar--lg { width: 72px; height: 72px; }
+.avatar--lg img { width: 34px; }
+/* Punto que avisa de oportunidades nuevas sin abrir el perfil. */
+.avatar__dot {
+  position: absolute; top: -2px; right: -2px; width: 12px; height: 12px;
+  background: var(--color-sand); border: 2px solid var(--bg-page); border-radius: var(--radius-pill);
+}
+@media (pointer: coarse) { .avatar { width: 44px; height: 44px; } }
+
+/* ---------- Oportunidades con acceso anticipado ---------- */
+.oport__head { padding-block: var(--space-xl) var(--space-lg); max-width: 62ch; }
+.oport__head h1 { margin-top: var(--space-sm); }
+.oport__head p { margin-top: var(--space-md); }
+.oport__cta { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-lg); }
+.lockbar {
+  display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; justify-content: space-between;
+  background: var(--bg-soft); border: 1px solid var(--border-default); border-radius: var(--radius-xl);
+  padding: var(--space-lg); margin-bottom: var(--space-xl);
+}
+.lockbar__txt { flex: 1 1 280px; min-width: 0; }
+.lockbar__txt strong { display: block; font-size: var(--fs-h4); font-weight: 600; }
+.lockbar__txt span { font-size: var(--fs-small); color: var(--text-on-soft); }
+.lockbar__cta { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+
+/* Teaser: se ve la fotografía, no el dato */
+.teaser { cursor: pointer; }
+.teaser .card__media::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(26,26,26,0) 40%, rgba(26,26,26,.45) 100%);
+}
+.teaser__lock {
+  position: absolute; left: var(--space-sm); top: var(--space-sm); z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; background: rgba(248,246,241,.94); border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}
+.teaser__body { padding: var(--space-lg); display: grid; gap: var(--space-xs); }
+.teaser__body p { font-size: var(--fs-small); color: var(--text-secondary); }
+.teaser__blur {
+  height: 12px; border-radius: var(--radius-sm); background: var(--color-soft-sand);
+}
+.teaser__blur--w70 { width: 70%; }
+.teaser__blur--w45 { width: 45%; }
+
+/* ---------- Perfil ---------- */
+.perfil__head { display: flex; flex-wrap: wrap; gap: var(--space-lg); align-items: center; padding-block: var(--space-xl) var(--space-lg); }
+.perfil__id { flex: 1 1 240px; min-width: 0; }
+.perfil__id h1 { font-size: var(--fs-h2); }
+.perfil__id p { color: var(--text-secondary); margin-top: 4px; }
+.perfil__acciones { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.perfil__seccion { padding-block: var(--space-xl) 0; }
+.perfil__seccion > h2 { font-size: var(--fs-h3); }
+.perfil__nota { font-size: var(--fs-small); color: var(--text-secondary); margin-top: 6px; }
+.badge-pro {
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: var(--space-sm);
+  padding: 4px 10px; border-radius: var(--radius-pill);
+  background: rgba(104,122,88,.14); color: var(--action-primary);
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+}

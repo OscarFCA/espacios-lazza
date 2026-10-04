@@ -352,7 +352,10 @@
   /* El catálogo que ve el sitio = base (js/data.js) + altas y ediciones del
      administrador, que mandan sobre la base cuando comparten slug. */
 
-  function catalogo() {
+  /* `catalogoCompleto` es todo lo que existe (lo usa el panel y la ficha);
+     `catalogo` es lo que ve la búsqueda pública; `oportunidades` son las de
+     acceso anticipado, que solo se abren con cuenta. */
+  function catalogoCompleto() {
     var base = (window.EL_DATA || []).slice();
     var propias = db.propiedades || [];
     var fuera = {};
@@ -363,6 +366,16 @@
       mapa[p.slug] = p;
     });
     return Object.keys(mapa).map(function (k) { return mapa[k]; });
+  }
+
+  function catalogo() {
+    return catalogoCompleto().filter(function (p) { return !p.exclusiva; });
+  }
+  function oportunidades() {
+    return catalogoCompleto().filter(function (p) { return p.exclusiva; });
+  }
+  function esExclusiva(slug) {
+    return catalogoCompleto().some(function (p) { return p.slug === slug && p.exclusiva; });
   }
 
   function guardarPropiedad(p) {
@@ -408,7 +421,8 @@
     actividadDe: actividadDe, actividadDeSlug: actividadDeSlug,
     leads: leads, lead: lead, actualizarLead: actualizarLead, moverLead: moverLead, borrarLead: borrarLead,
     agregarNota: agregarNota, borrarNota: borrarNota,
-    catalogo: catalogo, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
+    catalogo: catalogo, catalogoCompleto: catalogoCompleto,
+    oportunidades: oportunidades, esExclusiva: esExclusiva, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
     guardarPropiedad: guardarPropiedad, eliminarPropiedad: eliminarPropiedad,
     entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin,
     reiniciar: reiniciar

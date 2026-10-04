@@ -32,7 +32,7 @@
     } catch (e) { return ""; }
   }
   function tituloDe(slug) {
-    var p = window.Store.catalogo().filter(function (x) { return x.slug === slug; })[0];
+    var p = window.Store.catalogoCompleto().filter(function (x) { return x.slug === slug; })[0];
     return p ? p.title + " · " + p.zona : slug;
   }
 
@@ -175,7 +175,7 @@
   /* ============================ propiedades =========================== */
 
   function vistaPropiedades() {
-    var props = window.Store.catalogo();
+    var props = window.Store.catalogoCompleto();
     return '<div class="admin-bar">' +
         '<p class="small">' + props.length + ' propiedades publicadas</p>' +
         '<button class="btn btn--primary btn--sm" data-action="prop-new">Publicar propiedad</button>' +
@@ -317,7 +317,7 @@
       '</div>' +
       '<div class="container admin__tabs" role="tablist">' +
         tab("kanban", "Interesados", leads.length) +
-        tab("propiedades", "Propiedades", window.Store.catalogo().length) +
+        tab("propiedades", "Propiedades", window.Store.catalogoCompleto().length) +
         tab("actividad", "Actividad", window.Store.actividad().length) +
         (nuevos ? '<span class="admin__hint">' + nuevos + ' sin contactar</span>' : "") +
       '</div>' +
@@ -430,7 +430,7 @@
         ui().openSheet(formPropiedad(null), montarFormProp);
         return true;
       case "prop-edit": {
-        var p = S.catalogo().filter(function (x) { return x.slug === target.getAttribute("data-slug"); })[0];
+        var p = S.catalogoCompleto().filter(function (x) { return x.slug === target.getAttribute("data-slug"); })[0];
         fotosPendientes = (p && p.fotos ? p.fotos.slice() : []);
         ui().openSheet(formPropiedad(p), function () {
           montarFormProp();

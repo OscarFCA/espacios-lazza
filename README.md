@@ -55,6 +55,26 @@ cuántas lleva.
 El Kanban se mueve arrastrando con el ratón y, en táctil y teclado, con el selector de
 etapa que lleva cada tarjeta.
 
+### Oportunidades con acceso anticipado
+
+Tres propiedades llevan `exclusiva: true` en `js/data.js`. Eso las saca de la búsqueda
+pública y las manda a `#/oportunidades`:
+
+- **Sin cuenta:** se ven las fotografías con candado, sin ubicación, superficie ni
+  precio, y la ficha no abre (entrar por URL directa tampoco funciona). Dos botones:
+  crear cuenta o iniciar sesión.
+- **Con cuenta:** tarjetas completas y fichas abiertas, también listadas en el perfil.
+
+Es el beneficio concreto de registrarse, y la razón por la que el registro tiene sentido
+para el usuario y no solo para el equipo.
+
+### Perfil
+
+`#/perfil` es la pantalla del usuario: retrato (el símbolo de Legato sobre olivo), sus
+datos, **Oportunidades antes que nadie** y **Tus guardados**. Se llega tocando el
+retrato del header, o *Perfil* en la barra inferior del teléfono. Si la cuenta es del
+equipo, el perfil ofrece además entrar al panel.
+
 ### Cuentas de prueba
 
 | | Entra con | Qué ve |
