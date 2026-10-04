@@ -1049,6 +1049,7 @@
         break;
       case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); render(); break;
       case "sheet-close": closeSheet(); break;
+      case "admin": closeDrawer(true); go("admin"); break;
       case "registro-submit": enviarRegistro(); break;
       case "set-op":
         state.op = t.getAttribute("data-op");

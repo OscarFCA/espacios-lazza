@@ -585,6 +585,15 @@ body.has-actionbar .toast { bottom: calc(var(--bottomnav-h) + 80px + var(--safe-
 .footer__inner { display: grid; gap: var(--space-lg); padding-block: var(--space-2xl); }
 .footer__tag { font-size: var(--fs-small); color: var(--text-secondary); margin-top: var(--space-sm); max-width: 34ch; }
 .footer__note { font-size: 13px; color: var(--text-secondary); }
+.footer__meta { display: grid; gap: var(--space-xs); justify-items: start; }
+@media (min-width: 768px) { .footer__meta { justify-items: end; } }
+/* Entrada al panel interno: presente pero sin competir con nada. */
+.footer__admin {
+  background: none; border: 0; padding: 4px 0; min-height: 44px;
+  font-size: 13px; color: var(--text-secondary); text-decoration: underline;
+  text-underline-offset: 4px; text-decoration-color: var(--border-default);
+}
+.footer__admin:hover { color: var(--action-primary); text-decoration-color: currentColor; }
 @media (min-width: 768px) { .footer__inner { grid-template-columns: 1fr auto; align-items: end; } }
 
 /* ---------- Pantallas bajas (teléfono en horizontal) ---------- */
