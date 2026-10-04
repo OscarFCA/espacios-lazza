@@ -11,7 +11,9 @@ dependencias ni build. Todo el CSS parte del móvil y escala hacia arriba con
 ├── index.html          App shell: header, drawer, bottom nav, main, footer, sheet, toast
 ├── css/tokens.css      Tokens del design system (§24) + escala fluida y gutters
 ├── css/app.css         Componentes. Base móvil → 640 / 768 / 1024 / 1280
-├── js/data.js          Catálogo de propiedades (13 fichas) y catálogos de filtros
+├── js/data.js          Catálogo base de propiedades y catálogos de filtros
+├── js/store.js         Capa de datos: cuentas, sesión, interesados, actividad, catálogo
+├── js/admin.js         Panel interno: Kanban, ficha de interesado, alta de propiedades
 └── js/app.js           Estado, ruteo por hash, vistas, iconografía y eventos
 ```
 
@@ -24,6 +26,36 @@ python3 -m http.server 8848
 
 No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGator (FTP).
 
+## Los dos roles
+
+| | Usuario | Administrador |
+|---|---|---|
+| **Entra** | Se registra con nombre completo, correo y teléfono | `#/admin` con correo o teléfono + contraseña |
+| **Puede** | Buscar, ver fichas, **guardar** y **compartir** | Publicar y editar propiedades, mover interesados en el Kanban, ver quién guardó o compartió qué |
+| **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
+
+El panel tiene tres secciones: **Interesados** (Kanban de 6 etapas: Nuevo · Contactado ·
+Visita agendada · Negociación · Cerrado · Descartado), **Propiedades** (alta, edición,
+retiro y fotos) y **Actividad** (quién guardó y quién compartió, con fecha).
+
+La ficha de cada interesado guarda teléfono, correo, otros correos, presupuesto,
+empresa u ocupación, notas y etapa, y muestra su origen y todo su historial.
+
+El Kanban se mueve arrastrando con el ratón y, en táctil y teclado, con el selector de
+etapa que lleva cada tarjeta.
+
+> ### Límites de esta versión
+>
+> No hay servidor: **todo vive en el `localStorage` del navegador**. En la práctica:
+> una cuenta creada en un teléfono no existe en otro, y el panel solo ve la actividad
+> ocurrida en ese mismo navegador (por eso trae cuatro interesados de ejemplo).
+> La contraseña del panel está como hash en `js/store.js`, pero **en un sitio estático
+> ningún control de acceso es real**: cualquiera puede saltárselo desde el navegador.
+> Es una maqueta funcional para validar el flujo, no un sistema en operación.
+>
+> Toda la persistencia está aislada en `js/store.js`: conectar un backend es cambiar
+> ese archivo, no las vistas.
+
 ## Pantallas
 
 | Ruta | Pantalla |
@@ -31,7 +63,8 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 | `#/` | Home: hero editorial, buscador, selección, "cómo leemos una propiedad" y Nosotros |
 | `#/resultados?...` | Resultados: toolbar sticky, chips activos, estados vacío/carga/error |
 | `#/propiedad/<slug>` | Ficha: galería, precio, potencial, especificaciones, ubicación, similares |
-| `#/guardados` | Guardados: selección del dispositivo, con estado vacío |
+| `#/guardados` | Guardados: selección de la cuenta, con estado vacío |
+| `#/admin` | Panel interno: Interesados (Kanban), Propiedades y Actividad |
 
 Los filtros viven en la URL (`#/resultados?tipo=Terrenos&max=15000000`), así que una
 búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre pantallas.
@@ -151,6 +184,9 @@ maps: "https://maps.app.goo.gl/xxxxxxxx"
 ## Pendiente para producción
 
 - Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
-- Formularios reales de *Contactar*, *Agendar visita* y *Publicar propiedad*.
+- Backend real: cuentas con contraseña, datos compartidos entre dispositivos y un
+  panel con acceso de verdad. Hoy `js/store.js` es el único archivo a sustituir.
+- Formularios reales de *Contactar* y *Agendar visita*.
+- Aviso de privacidad: el registro ya pide datos personales (LFPDPPP).
 - Cuenta, guardados sincronizados (hoy en `localStorage`) y búsquedas guardadas.
 - Fotografía de las 13 propiedades.

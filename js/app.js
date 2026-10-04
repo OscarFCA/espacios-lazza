@@ -5,7 +5,9 @@
 (function () {
   "use strict";
 
-  var DATA = window.EL_DATA || [];
+  var S = window.Store;
+  var DATA = S.catalogo();
+  function refrescarDatos() { DATA = S.catalogo(); }
   var CAT = window.EL_CATALOG || {};
   var main = document.getElementById("main");
   var sheet = document.getElementById("sheet");
@@ -21,11 +23,16 @@
   };
 
   var state = Object.assign({}, DEFAULTS, {
-    screen: "home", sel: null, favs: loadFavs(),
+    screen: "home", sel: null,
     loading: false, error: false
   });
+  function favs() { return S.favoritos(); }
 
   var draft = null;          // copia de filtros mientras el bottom sheet está abierto
+  var accionPendiente = null; // lo que el usuario quería hacer antes de registrarse
+  // El cierre del panel/menú oculta con retraso (para que corra la transición).
+  // Si se abre otro antes de que venza, ese temporizador lo escondería a medias.
+  var tSheet = null, tDrawer = null;
   var lastFocus = null;      // foco previo a abrir drawer/sheet
   var toastTimer = null;
   var loadTimer = null;
@@ -111,14 +118,7 @@
       encodeURIComponent(p.zona + ", Ciudad de México");
   }
 
-  function loadFavs() {
-    try { return JSON.parse(localStorage.getItem("legato:favs") || "{}") || {}; }
-    catch (e) { return {}; }
-  }
-  function saveFavs() {
-    try { localStorage.setItem("legato:favs", JSON.stringify(state.favs)); } catch (e) {}
-  }
-  function favCount() { return Object.keys(state.favs).length; }
+  function favCount() { return Object.keys(favs()).length; }
 
   function toast(msg) {
     toastEl.textContent = msg;
@@ -219,6 +219,7 @@
     if (screen === "results") return "#/resultados" + toQuery();
     if (screen === "detail") return "#/propiedad/" + state.sel;
     if (screen === "saved") return "#/guardados";
+    if (screen === "admin") return "#/admin";
     return "#/";
   }
 
@@ -262,6 +263,12 @@
       return;
     }
 
+    if (path.indexOf("#/admin") === 0) {
+      state.screen = "admin";
+      render();
+      return;
+    }
+
     state.screen = "home";
     render();
     if (!forced) window.scrollTo(0, 0);
@@ -296,7 +303,7 @@
   }
 
   function cardHTML(p, variant) {
-    var fav = !!state.favs[p.slug];
+    var fav = !!favs()[p.slug];
     var compact = variant === "compact";
     return '' +
       '<article class="card' + (compact ? " card--compact" : "") + '" data-slug="' + esc(p.slug) + '">' +
@@ -494,7 +501,7 @@
   /* ---------- Guardados ---------- */
 
   function viewSaved() {
-    var saved = DATA.filter(function (p) { return state.favs[p.slug]; });
+    var saved = DATA.filter(function (p) { return favs()[p.slug]; });
     return '<div class="container results">' +
       '<p class="eyebrow">Tu selección</p>' +
       '<h1 style="margin-top:12px">Guardados</h1>' +
@@ -513,7 +520,7 @@
     var p = DATA.filter(function (x) { return x.slug === state.sel; })[0];
     if (!p) return '<div class="container results"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
 
-    var fav = !!state.favs[p.slug];
+    var fav = !!favs()[p.slug];
     var total = Math.max(1, p.fotosCount || 1);
     var slides = "";
     for (var i = 0; i < total; i++) {
@@ -660,17 +667,21 @@
   /* ============================ render ============================ */
 
   function render() {
-    var html = state.screen === "results" ? viewResults()
+    refrescarDatos();
+    var html = state.screen === "admin" ? window.Admin.view()
+             : state.screen === "results" ? viewResults()
              : state.screen === "detail" ? viewDetail()
              : state.screen === "saved" ? viewSaved()
              : viewHome();
     main.innerHTML = html;
     renderNav();
+    document.body.classList.toggle("is-admin", state.screen === "admin");
     document.body.classList.toggle("has-actionbar", state.screen === "detail");
     document.title = state.screen === "detail"
       ? ((DATA.filter(function (p) { return p.slug === state.sel; })[0] || {}).title || "Propiedad") + " · Legato Capital"
       : state.screen === "results" ? "Resultados · Legato Capital"
       : state.screen === "saved" ? "Guardados · Legato Capital"
+      : state.screen === "admin" ? "Administración · Legato Capital"
       : "Legato Capital · Patrimonio que trasciende";
     bindViewEvents();
   }
@@ -705,6 +716,15 @@
       go("results", null, { replace: true });
     });
 
+    var adminForm = document.getElementById("admin-login");
+    if (adminForm) adminForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      window.Admin.login(adminForm);
+    });
+
+    var regForm = document.getElementById("registro-form");
+    if (regForm) regForm.addEventListener("submit", function (e) { e.preventDefault(); enviarRegistro(); });
+
     var track = document.getElementById("gallery-track");
     if (track) {
       var counter = document.getElementById("gallery-counter");
@@ -719,6 +739,7 @@
   /* ============================ drawer ============================ */
 
   function openDrawer() {
+    clearTimeout(tDrawer);
     lastFocus = document.activeElement;
     drawer.hidden = false; overlay.hidden = false;
     requestAnimationFrame(function () {
@@ -735,7 +756,8 @@
     overlay.classList.remove("is-open");
     document.body.classList.remove("is-locked");
     setExpanded(false);
-    setTimeout(function () { drawer.hidden = true; if (sheet.hidden) overlay.hidden = true; }, 320);
+    clearTimeout(tDrawer);
+    tDrawer = setTimeout(function () { drawer.hidden = true; if (sheet.hidden) overlay.hidden = true; }, 320);
     if (!silent && lastFocus) lastFocus.focus();
   }
   function setExpanded(v) {
@@ -817,17 +839,23 @@
     '</div>';
   }
 
-  function openSheet() {
+  /* Panel genérico. Lo usan los filtros, el registro, la cuenta y el panel admin. */
+  function openSheet(html, onMount) {
+    clearTimeout(tSheet);
     lastFocus = document.activeElement;
-    draft = Object.assign({}, state);
-    sheet.innerHTML = sheetHTML();
+    sheet.innerHTML = html;
     sheet.hidden = false; overlay.hidden = false;
     requestAnimationFrame(function () {
       sheet.classList.add("is-open");
       overlay.classList.add("is-open");
     });
     document.body.classList.add("is-locked");
+    if (onMount) onMount();
     focusFirst(sheet);
+  }
+  function openFilters() {
+    draft = Object.assign({}, state);
+    openSheet(sheetHTML());
   }
   function refreshSheet() {
     var scroll = sheet.querySelector(".sheet__body");
@@ -851,7 +879,8 @@
     sheet.classList.remove("is-open");
     overlay.classList.remove("is-open");
     document.body.classList.remove("is-locked");
-    setTimeout(function () { sheet.hidden = true; if (drawer.hidden) overlay.hidden = true; }, 320);
+    clearTimeout(tSheet);
+    tSheet = setTimeout(function () { sheet.hidden = true; if (drawer.hidden) overlay.hidden = true; }, 320);
     draft = null;
     if (!silent && lastFocus) lastFocus.focus();
   }
@@ -870,11 +899,106 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
+  function compartir() {
+    var url = location.href;
+    if (state.screen === "detail") S.registrarActividad("compartido", state.sel);
+    if (navigator.share) navigator.share({ title: document.title, url: url }).catch(function () {});
+    else if (navigator.clipboard) navigator.clipboard.writeText(url)
+      .then(function () { toast("Enlace copiado."); })
+      .catch(function () { toast("Copia el enlace desde la barra de direcciones."); });
+    else toast(url);
+  }
+
+  /* ======================= registro y cuenta ======================= */
+
+  function registroHTML(contexto, errores, valores) {
+    errores = errores || {};
+    valores = valores || {};
+    var campo = function (id, name, label, tipo, extra) {
+      return '<div class="field' + (errores[name] ? " field--error" : "") + '">' +
+        '<label for="' + id + '">' + label + '</label>' +
+        '<input id="' + id + '" name="' + name + '" type="' + tipo + '" ' + (extra || "") +
+          ' value="' + esc(valores[name] || "") + '"' +
+          (errores[name] ? ' aria-invalid="true" aria-describedby="' + id + '-e"' : "") + '>' +
+        (errores[name] ? '<p class="field__error" id="' + id + '-e">' + icon("alert", 16) + esc(errores[name]) + '</p>' : "") +
+      '</div>';
+    };
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">Crea tu cuenta</h2>' +
+      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+    '</div>' +
+    '<div class="sheet__body">' +
+      '<p class="lead">' + esc(contexto || "Guarda propiedades y compártelas desde cualquier pantalla.") + '</p>' +
+      '<form id="registro-form" style="display:grid;gap:16px;margin-top:20px">' +
+        campo("rg-nombre", "nombre", "Nombre completo", "text", 'autocomplete="name" required') +
+        campo("rg-correo", "correo", "Correo", "email", 'autocomplete="email" inputmode="email" required') +
+        campo("rg-tel", "telefono", "Teléfono", "tel", 'autocomplete="tel" inputmode="tel" placeholder="10 dígitos" required') +
+        '<p class="small" style="color:var(--text-secondary)">Usamos tus datos para darte seguimiento sobre las propiedades que te interesen. Nada más.</p>' +
+      '</form>' +
+    '</div>' +
+    '<div class="sheet__foot">' +
+      '<button class="btn btn--link" data-action="sheet-close">Ahora no</button>' +
+      '<button class="btn btn--primary" data-action="registro-submit">Crear cuenta</button>' +
+    '</div>';
+  }
+
+  function pedirRegistro(contexto, despues) {
+    accionPendiente = despues || null;
+    openSheet(registroHTML(contexto));
+  }
+
+  function enviarRegistro() {
+    var f = document.getElementById("registro-form");
+    var datos = {
+      nombre: f.nombre.value, correo: f.correo.value, telefono: f.telefono.value,
+      origen: state.screen === "detail" ? state.sel : ""
+    };
+    var r = S.registrar(datos);
+    if (!r.ok) { openSheet(registroHTML(null, r.errores, datos)); return; }
+    closeSheet();
+    var pend = accionPendiente;
+    accionPendiente = null;
+    render();
+    // Si había una acción pendiente, ella da el aviso: así no se pisan dos toasts.
+    if (pend) pend();
+    else toast("Cuenta creada. Bienvenida, " + r.usuario.nombre.split(" ")[0] + ".");
+  }
+
+  function cuentaHTML() {
+    var u = S.sesion();
+    var n = favCount();
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">Tu cuenta</h2>' +
+      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+    '</div>' +
+    '<div class="sheet__body">' +
+      '<p class="eyebrow">Sesión activa</p>' +
+      '<p style="font-size:var(--fs-h4);font-weight:600;margin-top:6px">' + esc(u.nombre) + '</p>' +
+      '<p class="small" style="color:var(--text-secondary)">' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
+      '<div class="admin-block"><h3>Guardados</h3>' +
+        '<p class="small">' + (n ? n + (n === 1 ? " propiedad guardada" : " propiedades guardadas") : "Todavía no guardas propiedades") + '.</p>' +
+      '</div>' +
+      '<p class="small" style="color:var(--text-secondary)">Tu cuenta vive en este navegador mientras no exista el servidor; al cambiar de dispositivo habrá que crearla de nuevo.</p>' +
+    '</div>' +
+    '<div class="sheet__foot">' +
+      '<button class="btn btn--link" data-action="logout">Cerrar sesión</button>' +
+      '<button class="btn btn--primary" data-action="sheet-close">Listo</button>' +
+    '</div>';
+  }
+
   /* ============================ eventos ============================ */
 
   function numFrom(v) { return Number(String(v).replace(/[^0-9]/g, "")) || 0; }
 
   document.addEventListener("click", function (e) {
+    // El panel admin tiene sus propios objetivos (pestañas, tarjetas del Kanban).
+    if (state.screen === "admin") {
+      var at = e.target.closest("[data-action], [data-admin-tab], [data-lead]");
+      if (at && window.Admin.handle(at.getAttribute("data-action"), at, e)) return;
+    }
+
     var t = e.target.closest("[data-action], [data-draft], .card");
     if (!t) return;
 
@@ -900,7 +1024,14 @@
       case "home": e.preventDefault(); go("home"); break;
       case "menu-open": openDrawer(); break;
       case "menu-close": closeDrawer(); break;
-      case "favs": closeDrawer(true); go("saved"); break;
+      case "favs":
+        closeDrawer(true);
+        if (!S.sesion()) {
+          pedirRegistro("Crea tu cuenta para conservar tus propiedades guardadas.", function () { go("saved"); });
+          break;
+        }
+        go("saved");
+        break;
       case "nosotros": {
         closeDrawer(true);
         if (state.screen !== "home") go("home");
@@ -911,7 +1042,14 @@
         break;
       }
       case "publicar": toast("Publicar propiedad estará disponible en la siguiente fase."); closeDrawer(); break;
-      case "cuenta": toast("El acceso a Cuenta estará disponible en la siguiente fase."); closeDrawer(); break;
+      case "cuenta":
+        closeDrawer(true);
+        if (S.sesion()) openSheet(cuentaHTML());
+        else pedirRegistro("Crea tu cuenta para guardar propiedades y compartirlas.");
+        break;
+      case "logout": S.salir(); closeSheet(); toast("Sesión cerrada."); render(); break;
+      case "sheet-close": closeSheet(); break;
+      case "registro-submit": enviarRegistro(); break;
       case "set-op":
         state.op = t.getAttribute("data-op");
         state.max = 0; state.min = 0;
@@ -928,10 +1066,14 @@
       case "fav": {
         e.preventDefault(); e.stopPropagation();
         var slug = t.getAttribute("data-slug");
-        var on = !state.favs[slug];
-        if (on) state.favs[slug] = true; else delete state.favs[slug];
-        saveFavs();
-        toast(on ? "Propiedad guardada." : "Propiedad quitada de Guardados.");
+        if (!S.sesion()) {
+          pedirRegistro("Crea tu cuenta para guardar esta propiedad y volver a ella cuando quieras.", function () {
+            S.alternarFavorito(slug); toast("Cuenta creada y propiedad guardada."); render();
+          });
+          break;
+        }
+        var r = S.alternarFavorito(slug);
+        toast(r.activo ? "Propiedad guardada." : "Propiedad quitada de Guardados.");
         render();
         break;
       }
@@ -949,7 +1091,7 @@
         Object.assign(state, DEFAULTS, { op: state.op, sort: state.sort });
         go("results", null, { replace: true });
         break;
-      case "filters-open": openSheet(); break;
+      case "filters-open": openFilters(); break;
       case "filters-close": closeSheet(); break;
       case "filters-clear":
         draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, q: draft.q });
@@ -962,10 +1104,11 @@
         break;
       case "retry": startLoading(); break;
       case "share": {
-        var url = location.href;
-        if (navigator.share) navigator.share({ title: document.title, url: url }).catch(function () {});
-        else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado."); });
-        else toast(url);
+        if (!S.sesion()) {
+          pedirRegistro("Crea tu cuenta para compartir esta propiedad.", function () { toast("Cuenta creada."); compartir(); });
+          break;
+        }
+        compartir();
         break;
       }
       case "contact": toast("Un asesor de Legato Capital te contactará para dar seguimiento."); break;
@@ -1021,7 +1164,14 @@
     main.focus({ preventScroll: true });
   });
 
+  window.LegatoUI = {
+    esc: esc, icon: icon, money: money, toast: toast, render: render,
+    go: function (screen, patch) { go(screen, patch); },
+    openSheet: openSheet, closeSheet: closeSheet
+  };
+
   // Arranque
   if (!location.hash) history.replaceState(null, "", "#/");
+  window.Admin.bind();
   route(true);
 })();
