@@ -31,6 +31,7 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 | | Usuario | Administrador |
 |---|---|---|
 | **Entra** | **Crear cuenta** (CTA verde del header): nombre completo, correo y teléfono | **Iniciar sesión**, el mismo botón que usa cualquiera |
+| **Ve** | Su perfil: oportunidades y guardados | El mismo perfil, con una barra de pestañas extra |
 | **Puede** | Buscar, ver fichas, **guardar** y **compartir** | Publicar y editar propiedades, mover interesados en el Kanban, ver quién guardó o compartió qué |
 | **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
 
@@ -40,9 +41,18 @@ si es una cuenta común, entra directo a sus propiedades guardadas; si no existe
 ofrece crearla con esos datos. La cuenta del equipo vive en la misma lista de usuarios
 marcada con `admin: true`, y nadie puede registrarse con ese correo.
 
-El panel tiene tres secciones: **Interesados** (Kanban de 6 etapas: Nuevo · Contactado ·
-Visita agendada · Negociación · Cerrado · Descartado), **Propiedades** (alta, edición,
-retiro y fotos) y **Actividad** (quién guardó y quién compartió, con fecha).
+**El panel no es una pantalla aparte: son pestañas del propio perfil.** La cuenta con
+bandera de equipo ve en `#/perfil` una barra con *Mi perfil · Interesados · Propiedades ·
+Actividad*; sin la bandera esa barra no existe, y forzar `#/perfil/interesados` por URL
+no muestra nada del panel.
+
+- **Interesados**: Kanban de 6 etapas (Nuevo · Contactado · Visita agendada ·
+  Negociación · Cerrado · Descartado).
+- **Propiedades**: alta, edición, retiro y fotos.
+- **Actividad**: quién guardó y quién compartió, con fecha.
+
+Cada pestaña tiene su URL (`#/perfil/interesados`), así que el botón atrás las recorre.
+`#/admin` sigue funcionando: redirige a la pestaña del tablero.
 
 La ficha de cada interesado guarda teléfono, correo, otros correos, presupuesto,
 empresa u ocupación y etapa, y muestra su origen y todo su historial.
