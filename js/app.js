@@ -413,7 +413,7 @@
         '<div style="display:grid;gap:16px">' +
           '<p>Legato Capital acompaña decisiones de largo plazo: compra, renta e inversión en propiedades y terrenos con valor hoy y potencial para mañana.</p>' +
           '<p>Trabajamos con información verificable —superficie, frente, uso de suelo y estado real— para que cada decisión se tome con claridad y no con urgencia.</p>' +
-          '<div><button class="btn btn--olive" data-action="contact">Hablar con un asesor</button></div>' +
+          '<div><button class="btn btn--primary" data-action="contact">Hablar con un asesor</button></div>' +
         '</div>' +
       '</div>' +
     '</section>';
@@ -597,7 +597,7 @@
           '<p class="aside__label">Asesor patrimonial</p>' +
           '<p class="aside__name">Legato Capital · ' + esc(p.zona.split(",")[0]) + '</p>' +
           '<button class="btn btn--primary btn--block" data-action="contact">Contactar</button>' +
-          '<button class="btn btn--olive btn--block" data-action="visita">Agendar visita</button>' +
+          '<button class="btn btn--secondary btn--block" data-action="visita">Agendar visita</button>' +
           '<button class="btn btn--link btn--block" data-action="save-search">Guardar búsqueda</button>' +
           '<p class="aside__note">Respondemos con información verificable sobre superficie, uso de suelo y estado del inmueble.</p>' +
         '</aside>' +

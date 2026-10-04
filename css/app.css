@@ -39,7 +39,7 @@ dl, dd { margin: 0; }
 }
 .skip-link {
   position: absolute; left: var(--space-md); top: -100px; z-index: 100;
-  background: var(--action-primary); color: var(--text-inverse);
+  background: var(--action-neutral); color: var(--text-inverse);
   padding: 12px 16px; border-radius: var(--radius-md); font-weight: 600;
 }
 .skip-link:focus { top: var(--space-xs); }
@@ -66,10 +66,11 @@ dl, dd { margin: 0; }
 }
 .btn--primary { background: var(--action-primary); color: var(--text-inverse); }
 .btn--primary:hover { background: var(--action-primary-hover); }
-.btn--secondary { background: transparent; color: var(--text-primary); border-color: var(--action-primary); }
-.btn--secondary:hover { background: var(--action-primary); color: var(--text-inverse); }
-.btn--olive { background: var(--action-accent); color: var(--text-inverse); }
-.btn--olive:hover { background: var(--action-accent-hover); }
+.btn--secondary { background: transparent; color: var(--text-primary); border-color: var(--action-neutral); }
+.btn--secondary:hover { background: var(--action-neutral); color: var(--text-inverse); }
+/* Contorno olivo: CTA de marca que acompaña sin competir con el principal. */
+.btn--line { background: transparent; color: var(--action-primary); border-color: var(--action-primary); }
+.btn--line:hover { background: var(--action-primary); color: var(--text-inverse); }
 .btn--quiet { background: var(--bg-surface); color: var(--text-primary); border-color: var(--border-default); }
 .btn--quiet:hover { border-color: var(--action-accent); color: var(--action-accent); }
 .btn--link { background: none; border: 0; padding: 0 var(--space-xs); min-height: 44px; font-weight: 500; }
@@ -84,7 +85,7 @@ dl, dd { margin: 0; }
 }
 .btn--block { width: 100%; }
 .btn[disabled] { opacity: .45; cursor: not-allowed; }
-.btn[disabled]:hover { background: var(--action-primary); color: var(--text-inverse); }
+.btn--primary[disabled]:hover { background: var(--action-primary); color: var(--text-inverse); }
 .icon-btn {
   width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
   background: none; border: 1px solid transparent; border-radius: var(--radius-md); flex: 0 0 auto;
@@ -568,7 +569,7 @@ body.has-actionbar { padding-bottom: calc(80px + var(--bottomnav-h) + var(--safe
   position: fixed; left: 50%; bottom: calc(var(--bottomnav-h) + var(--space-md) + var(--safe-b)); z-index: 60;
   transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
   max-width: calc(100vw - var(--space-xl));
-  padding: 14px 20px; background: var(--action-primary); color: var(--text-inverse);
+  padding: 14px 20px; background: var(--action-neutral); color: var(--text-inverse);
   font-size: var(--fs-small); font-weight: 500; border-radius: var(--radius-md); box-shadow: var(--shadow-md);
   transition: opacity var(--duration-hover) var(--ease), transform var(--duration-hover) var(--ease);
 }

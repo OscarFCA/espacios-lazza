@@ -38,9 +38,13 @@ búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre
 
 ## Sistema visual aplicado
 
-- **Color** — hueso `#F8F6F1` de fondo, carbón para texto y CTA primario, olivo como
-  acento (iconos, estado activo, CTA secundario), arena para fotografía y superficies
-  editoriales. Sin gradientes fuertes ni sombras duras.
+- **Color** — hueso `#F8F6F1` de fondo, carbón para texto, **olivo como acción
+  principal** (CTA, pestaña activa, chips activos, foco) y arena para fotografía y
+  superficies editoriales. Sin gradientes fuertes ni sombras duras.
+
+  Jerarquía de acción: olivo sólido (principal) → contorno olivo (CTA de marca, como
+  *Publicar propiedad*) → contorno carbón (secundario, como *Agendar visita*) → enlace.
+  Es una decisión de marca sobre el §12, que proponía carbón como primario.
 - **Tipografía** — Plus Jakarta Sans como única familia; Display XL 64 / H1 48 / H2 36 /
   H3 28 / H4 22 / Body 16 / Label 12 con `letter-spacing` .14em en mayúsculas.
 - **Espaciado** — base 8 px; márgenes laterales 20 → 32 → 80 px, contenedor 1440 / 1280.
@@ -54,9 +58,9 @@ búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre
 
 El §23 pide 4.5:1 en texto normal y el propio sistema no lo alcanza en dos pares:
 
-1. **Blanco sobre olivo `#687A58` da 3.8:1.** Las superficies olivo que llevan texto
-   (botón olivo, chip activo) usan `--color-dark-olive #4F6045` → 6.8:1. El olivo claro
-   queda para iconos, bordes y acentos gráficos, donde basta 3:1.
+1. **Blanco sobre olivo `#687A58` da 3.8:1.** Toda superficie olivo con texto
+   (CTA principal, pestaña y chips activos) usa `--color-dark-olive #4F6045` → 6.8:1.
+   El olivo claro queda para iconos, bordes y acentos gráficos, donde basta 3:1.
 2. **Stone `#6B6B66` sobre arena suave da 4.37:1.** Sobre hueso y blanco sí pasa
    (4.9 / 5.3), así que solo las secciones en arena usan un tono más profundo.
 

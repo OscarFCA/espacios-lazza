@@ -29,11 +29,14 @@
   --text-on-sand: #4A4843;
   --text-inverse: var(--color-white);
   --border-default: var(--color-light-stone);
-  --action-primary: var(--color-charcoal);
-  --action-primary-hover: #303030;
-  /* El olivo #687A58 con texto blanco da 3.8:1 y no alcanza el 4.5 que pide el §23.
-     Las superficies olivo que llevan texto usan el olivo oscuro (6.8:1); el olivo
-     claro queda para iconos, bordes y acentos gráficos, donde basta 3:1. */
+  /* Olivo como acción principal (decisión de marca sobre el §12, que proponía
+     carbón). El olivo #687A58 con texto blanco da 3.8:1 y no alcanza el 4.5 del
+     §23, así que toda superficie olivo con texto usa el olivo oscuro (6.8:1);
+     el olivo claro queda para iconos, bordes y acentos gráficos, donde basta 3:1. */
+  --action-primary: var(--color-dark-olive);
+  --action-primary-hover: #3E4C36;
+  --action-neutral: var(--color-charcoal);
+  --action-neutral-hover: #303030;
   --action-accent: var(--color-dark-olive);
   --action-accent-hover: #3E4C36;
   --accent-line: var(--color-olive);
