@@ -1,10 +1,10 @@
-/* Espacios Lazza — Catálogo de propiedades (prototipo).
+/* Legato Capital — Catálogo de propiedades (prototipo).
  *
  * Para publicar fotografía real: agrega `fotos: [{ src, alt }, ...]` a la propiedad.
  * Para apuntar la ubicación a un punto exacto, agrega `maps: "https://maps.app.goo.gl/..."`;
  * sin ese campo el enlace busca la zona de la ficha en Google Maps.
  * Si `fotos` está vacío se muestra un placeholder honesto, nunca una imagen
- * que altere el estado percibido del inmueble (Design System §9).
+ * que altere el estado percibido del inmueble (Design System §16).
  */
 window.EL_DATA = [
   { slug:"condesa-remodelar", op:"venta", tipo:"Casas", remodelar:true, title:"Casa para remodelar", zona:"Condesa, Cuauhtémoc", price:12800000, terreno:280, construido:210, rec:3, ban:2, autos:2, frente:"10 m", badge:"PARA REMODELAR", fotosCount:12, nuevo:6, x:34, y:30, fotos:[],

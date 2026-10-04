@@ -1,91 +1,115 @@
-# Espacios Lazza — plataforma inmobiliaria (mobile first)
+# Legato Capital — plataforma inmobiliaria (mobile first)
 
-Implementación del design system **Espacios Lazza v1.0** como sitio estático, sin
+Implementación del **Design System Legato Capital** como sitio estático, sin
 dependencias ni build. Todo el CSS parte del móvil y escala hacia arriba con
 `min-width`: el teléfono es el diseño base, no una adaptación.
 
+> Rediseño sobre la base de Espacios Lazza (misma arquitectura de producto,
+> identidad y sistema visual nuevos). La versión anterior vive en el historial de git.
+
 ```
-EspaciosLazza/
-├── index.html          App shell: header, drawer, main, footer, sheet, toast
-├── css/tokens.css      Tokens del design system (§22) + escala fluida y gutters
+├── index.html          App shell: header, drawer, bottom nav, main, footer, sheet, toast
+├── css/tokens.css      Tokens del design system (§24) + escala fluida y gutters
 ├── css/app.css         Componentes. Base móvil → 640 / 768 / 1024 / 1280
 ├── js/data.js          Catálogo de propiedades (13 fichas) y catálogos de filtros
-├── js/app.js           Estado, ruteo por hash, vistas y eventos
-└── assets/             Lockup y símbolo Lazza
+└── js/app.js           Estado, ruteo por hash, vistas, iconografía y eventos
 ```
 
 ## Correr en local
 
 ```bash
-cd EspaciosLazza
 python3 -m http.server 8848
 # http://localhost:8848
 ```
 
-No requiere Node ni compilación. Se publica tal cual en HostGator (FTP) o GitHub Pages.
+No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGator (FTP).
 
 ## Pantallas
 
 | Ruta | Pantalla |
 |------|----------|
-| `#/` | Home: hero, tabs Comprar/Rentar, buscador, accesos rápidos, selección y pilares |
-| `#/resultados?...` | Resultados: toolbar sticky, chips activos, lista, estados vacío/carga/error |
-| `#/propiedad/<slug>` | Ficha: galería, precio, descripción, ¿por qué tiene potencial?, especificaciones, ubicación (enlace a Google Maps), similares |
+| `#/` | Home: hero editorial, buscador, selección, "cómo leemos una propiedad" y Nosotros |
+| `#/resultados?...` | Resultados: toolbar sticky, chips activos, estados vacío/carga/error |
+| `#/propiedad/<slug>` | Ficha: galería, precio, potencial, especificaciones, ubicación, similares |
+| `#/guardados` | Guardados: selección del dispositivo, con estado vacío |
 
 Los filtros viven en la URL (`#/resultados?tipo=Terrenos&max=15000000`), así que una
 búsqueda se puede compartir y el botón **atrás** del teléfono funciona entre pantallas.
 
-## Decisiones mobile first
+## Sistema visual aplicado
 
-- **Header 56 px** con logo, favoritos y menú; el drawer lateral trae la navegación
-  completa. A partir de 1024 px aparece la barra horizontal y el CTA "Publicar propiedad".
-- **Buscar en un tap desde Home**: el buscador está desplegado (no oculto tras un botón)
-  y los accesos rápidos llevan directo a resultados filtrados.
-- **Buscador apilado** en móvil (tres campos de 56 px + botón ancho); a 1024 px se
-  convierte en la barra única de 56 px del design system.
-- **Filtros en bottom sheet** a pantalla casi completa, con CTA fijo abajo que muestra el
-  conteo en vivo (*Ver 8 propiedades*) y valida precio mínimo/máximo antes de aplicar.
-  En tablet/desktop el mismo componente se centra como modal.
-- **Cards verticales full-width** en móvil → 2 columnas a 640 px → 3 a 1024 px. Toda la
-  card es un objetivo táctil (link estirado) y el corazón conserva acción propia.
-- **Ubicación por enlace**: la ficha no incrusta un mapa; muestra la zona y un botón
-  *Ver en Google Maps* que abre la app nativa en el teléfono. Si la propiedad trae
-  `maps` en `js/data.js` se usa ese enlace; si no, se busca la zona.
-- **Ficha**: galería deslizable con contador, y barra de acción fija abajo con precio
-  corto + *Contactar*. En desktop la galería es 2/3 + dos secundarias y el asesor queda
-  en una columna sticky.
+- **Color** — hueso `#F8F6F1` de fondo, carbón para texto y CTA primario, olivo como
+  acento (iconos, estado activo, CTA secundario), arena para fotografía y superficies
+  editoriales. Sin gradientes fuertes ni sombras duras.
+- **Tipografía** — Plus Jakarta Sans como única familia; Display XL 64 / H1 48 / H2 36 /
+  H3 28 / H4 22 / Body 16 / Label 12 con `letter-spacing` .14em en mayúsculas.
+- **Espaciado** — base 8 px; márgenes laterales 20 → 32 → 80 px, contenedor 1440 / 1280.
+- **Radios** — 4 inputs pequeños, 6 botones, 8 cards, 12 cards principales, 16 imágenes.
+- **Motion** — 120 / 180 / 240 / 320 ms con `cubic-bezier(.22,1,.36,1)`.
+- **Iconografía** — set lineal propio (trazo 1.7, sin relleno) en vez de una librería
+  externa, para no cargar dependencias: búsqueda, filtro, marcador, ubicación, terreno,
+  superficie, recámara, baño, auto, perfil.
 
-## Accesibilidad (objetivo WCAG 2.2 AA)
+### Dos ajustes de contraste sobre el documento
 
-- Objetivos táctiles ≥ 44 × 44 px (los chips crecen en `pointer: coarse`).
+El §23 pide 4.5:1 en texto normal y el propio sistema no lo alcanza en dos pares:
+
+1. **Blanco sobre olivo `#687A58` da 3.8:1.** Las superficies olivo que llevan texto
+   (botón olivo, chip activo) usan `--color-dark-olive #4F6045` → 6.8:1. El olivo claro
+   queda para iconos, bordes y acentos gráficos, donde basta 3:1.
+2. **Stone `#6B6B66` sobre arena suave da 4.37:1.** Sobre hueso y blanco sí pasa
+   (4.9 / 5.3), así que solo las secciones en arena usan un tono más profundo.
+
+`css/tokens.css` documenta ambos en el lugar donde se definen.
+
+## Mobile first
+
+- **Bottom nav** (§21): Inicio · Buscar · Guardados · Perfil, con contador de guardados.
+  El menú lateral conserva la navegación completa (Comprar, Rentar, Terrenos, Inversión,
+  Nosotros) y el CTA de publicar.
+- **Buscar en un tap desde Home**: el buscador está desplegado y los accesos rápidos
+  llevan directo a resultados filtrados.
+- **Buscador apilado** en móvil; a 1024 px se convierte en la barra horizontal única.
+- **Filtros en bottom sheet** con CTA fijo que muestra el conteo en vivo y valida
+  precio mínimo/máximo. En tablet/desktop el mismo componente se centra como modal.
+- **Cards full-width** en móvil → 2 columnas a 640 px → 3 a 1024 px. Toda la card es
+  objetivo táctil; el marcador conserva acción propia.
+- **Ficha**: galería deslizable con contador y barra de acción fija apoyada sobre el
+  bottom nav. En desktop, galería 2/3 + dos secundarias y asesor en columna sticky.
+
+## Accesibilidad (WCAG 2.2 AA)
+
+- Todo el texto renderizado pasa 4.5:1 (3:1 en texto grande); hay una auditoría
+  automatizada de contraste sobre las cinco pantallas.
+- Objetivos táctiles ≥ 44 × 44 px; los chips crecen en `pointer: coarse`.
 - Estado seleccionado nunca depende solo del color: cambia fondo, peso y marca ✓.
-- Foco visible, navegación completa por teclado, `Escape` cierra drawer y sheet, foco
-  atrapado dentro de ambos y devuelto al control que los abrió.
-- Precios duplicados para lector de pantalla ("12,800,000 pesos mexicanos").
-- Errores de formulario con `aria-invalid` + `aria-describedby`, no solo color.
+- Foco visible con halo olivo, navegación por teclado, `Escape` cierra drawer y sheet,
+  foco atrapado dentro de ambos y devuelto al control que los abrió.
+- Precios duplicados para lector de pantalla; iconos con su unidad en texto.
 - `prefers-reduced-motion` desactiva transiciones y el shimmer de los skeletons.
 
-## Fotografía
+## Fotografía y marca
 
-Mientras no haya imágenes reales, cada ficha muestra un placeholder que declara qué
-falta ("Fotografía 3 de 12"), en lugar de una foto de archivo que altere el estado
-percibido del inmueble (§9). Para publicar fotos reales basta agregar el arreglo en
-`js/data.js`:
+Las fotos son placeholders que declaran qué falta ("Fotografía 3 de 12"), no imágenes de
+archivo que alteren el estado percibido del inmueble. Para publicar fotos reales:
 
 ```js
 fotos: [
-  { src: "assets/fotos/condesa-01.jpg", alt: "Fachada de la casa en Condesa" },
-  { src: "assets/fotos/condesa-02.jpg", alt: "Patio central en su estado actual" }
+  { src: "assets/fotos/condesa-01.jpg", alt: "Fachada de la casa en Condesa" }
 ]
 ```
 
-Ratios: card 4:3, galería 4:3, hero 16:9.
+Dirección: arquitectura contemporánea, piedra, madera, olivos, luz cálida, saturación
+contenida. Ratios: card 4:3, galería 4:3, hero 16:9 / 2:1.
+
+El header usa un **wordmark tipográfico provisional** (Plus Jakarta Sans, tracking .08em):
+el logotipo de Legato es personalizado y el documento pide no reconstruirlo con una
+fuente estándar. Se sustituye en `index.html` cuando exista el archivo.
 
 ## Ubicación
 
-Cada ficha enlaza a Google Maps en pestaña nueva. Por omisión el enlace busca la zona
-(`Condesa, Cuauhtémoc, Ciudad de México`). Para un punto exacto, agrega el enlace corto
-de Google Maps a la propiedad:
+Cada ficha enlaza a Google Maps en pestaña nueva. Por omisión busca la zona; para un
+punto exacto, agrega el enlace corto a la propiedad en `js/data.js`:
 
 ```js
 maps: "https://maps.app.goo.gl/xxxxxxxx"
@@ -93,8 +117,8 @@ maps: "https://maps.app.goo.gl/xxxxxxxx"
 
 ## Pendiente para producción
 
+- Logotipo de Legato Capital (lockup y símbolo) y favicon.
 - Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
-- Formularios reales de *Contactar*, *Agendar visita* y *Publicar propiedad*
-  (hoy responden con un toast).
-- Cuenta, favoritos sincronizados (hoy viven en `localStorage`) y búsquedas guardadas.
+- Formularios reales de *Contactar*, *Agendar visita* y *Publicar propiedad*.
+- Cuenta, guardados sincronizados (hoy en `localStorage`) y búsquedas guardadas.
 - Fotografía de las 13 propiedades.

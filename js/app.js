@@ -1,4 +1,4 @@
-/* Espacios Lazza — aplicación mobile first.
+/* Legato Capital — aplicación mobile first.
  * Vanilla JS, sin dependencias. Ruteo por hash para que el botón "atrás"
  * del teléfono funcione y las búsquedas se puedan compartir.
  */
@@ -12,6 +12,7 @@
   var drawer = document.getElementById("drawer");
   var overlay = document.getElementById("overlay");
   var toastEl = document.getElementById("toast");
+  var bottomnav = document.getElementById("bottomnav");
 
   var DEFAULTS = {
     op: "venta", q: "", tipo: "Todos", remodelar: false,
@@ -29,6 +30,31 @@
   var toastTimer = null;
   var loadTimer = null;
 
+  /* ============================ iconografía (§15) ============================ */
+  /* Trazo lineal 1.6–1.8, sin relleno, geométrica. */
+  function icon(name, size) {
+    var s = size || 18;
+    var paths = {
+      search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/>',
+      filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+      bookmark: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
+      home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',
+      user: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5"/>',
+      pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/>',
+      land: '<path d="M3 17 9 5l6 7 3-4 3 9z"/>',
+      ruler: '<rect x="3" y="8" width="18" height="8" rx="1"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/>',
+      bed: '<path d="M3 18v-7h14a4 4 0 0 1 4 4v3M3 11V7M3 18h18"/><circle cx="7.5" cy="14" r="1.6"/>',
+      bath: '<path d="M4 11h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4z"/><path d="M7 11V6a2 2 0 0 1 4 0"/>',
+      car: '<path d="M5 16v2M19 16v2M4 16h16v-3l-2-5H6l-2 5z"/><circle cx="7.5" cy="13" r="1"/><circle cx="16.5" cy="13" r="1"/>',
+      image: '<rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="9.5" r="1.3"/>',
+      external: '<path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V7.5A1.5 1.5 0 0 1 6 6h4"/>',
+      close: '<path d="M6 6l12 12M18 6L6 18"/>',
+      alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'
+    };
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths[name] + "</svg>";
+  }
+
   /* ============================ utilidades ============================ */
 
   function esc(s) {
@@ -44,20 +70,39 @@
     if (op === "renta") return "$" + Math.round(n / 1000) + "k";
     return "$" + (n / 1000000).toFixed(1).replace(".0", "") + "M";
   }
-  function areaLine(p) {
-    var parts = [];
-    if (p.terreno) parts.push(p.terreno.toLocaleString("en-US") + " m² terreno");
-    if (p.construido) parts.push(p.construido + " m² construidos");
-    return parts.join(" · ");
-  }
-  function roomsLine(p) {
-    if (!p.rec) return "Frente " + p.frente + " · Uso habitacional";
-    return p.rec + " rec · " + p.ban + " baños · " + p.autos + " autos";
-  }
   function priceLabel(n, op) {
     // Legible por lector de pantalla: evita que "$12,800,000" se lea como dígitos sueltos.
     if (op === "renta") return Number(n).toLocaleString("es-MX") + " pesos mexicanos por mes";
     return Number(n).toLocaleString("es-MX") + " pesos mexicanos";
+  }
+  function tipoLabel(p) {
+    if (p.remodelar) return p.tipo.replace(/s$/, "") + " para remodelar";
+    if (p.tipo === "Terrenos") return "Terreno";
+    return p.tipo.replace(/s$/, "");
+  }
+  function opLabel(p) { return p.op === "renta" ? "En renta" : "En venta"; }
+
+  /* Datos clave de la card con iconografía lineal (§14). */
+  function facts(p) {
+    var out = [];
+    if (p.terreno) out.push([ "ruler", p.terreno.toLocaleString("en-US") + " m² terreno" ]);
+    if (p.construido) out.push([ "land", p.construido + " m² const." ]);
+    if (p.rec) out.push([ "bed", p.rec + " rec" ]);
+    // El icono solo no basta: cada dato lleva su unidad en texto.
+    if (p.ban) out.push([ "bath", p.ban + (p.ban === 1 ? " baño" : " baños") ]);
+    if (p.autos) out.push([ "car", p.autos + (p.autos === 1 ? " auto" : " autos") ]);
+    if (!p.rec && p.frente && p.frente !== "—") out.push([ "pin", "Frente " + p.frente ]);
+    return out;
+  }
+  function factsHTML(p) {
+    var f = facts(p);
+    if (!f.length) return "";
+    return '<div class="card__facts">' + f.map(function (x) {
+      return '<span class="fact">' + icon(x[0], 16) + esc(x[1]) + "</span>";
+    }).join("") + "</div>";
+  }
+  function metaLine(p) {
+    return facts(p).map(function (x) { return x[1]; }).join(" · ");
   }
 
   function mapsUrl(p) {
@@ -67,18 +112,19 @@
   }
 
   function loadFavs() {
-    try { return JSON.parse(localStorage.getItem("el:favs") || "{}") || {}; }
+    try { return JSON.parse(localStorage.getItem("legato:favs") || "{}") || {}; }
     catch (e) { return {}; }
   }
   function saveFavs() {
-    try { localStorage.setItem("el:favs", JSON.stringify(state.favs)); } catch (e) {}
+    try { localStorage.setItem("legato:favs", JSON.stringify(state.favs)); } catch (e) {}
   }
+  function favCount() { return Object.keys(state.favs).length; }
 
   function toast(msg) {
     toastEl.textContent = msg;
     toastEl.classList.add("is-on");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2400);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("is-on"); }, 2600);
   }
 
   /* ============================ filtrado ============================ */
@@ -172,6 +218,7 @@
   function hashFor(screen) {
     if (screen === "results") return "#/resultados" + toQuery();
     if (screen === "detail") return "#/propiedad/" + state.sel;
+    if (screen === "saved") return "#/guardados";
     return "#/";
   }
 
@@ -195,8 +242,7 @@
 
     if (path.indexOf("#/propiedad/") === 0) {
       var slug = decodeURIComponent(path.slice("#/propiedad/".length));
-      var found = DATA.some(function (p) { return p.slug === slug; });
-      if (!found) { location.replace("#/"); return; }
+      if (!DATA.some(function (p) { return p.slug === slug; })) { location.replace("#/"); return; }
       state.screen = "detail";
       state.sel = slug;
       render();
@@ -207,6 +253,12 @@
       applyQuery(qs);
       state.screen = "results";
       startLoading();
+      return;
+    }
+
+    if (path.indexOf("#/guardados") === 0) {
+      state.screen = "saved";
+      render();
       return;
     }
 
@@ -226,20 +278,21 @@
     }, 320);
   }
 
-  /* ============================ vistas ============================ */
+  /* ============================ piezas de vista ============================ */
 
-  function photoHTML(p, index, sizeHint) {
+  function photoHTML(p, index, hint) {
     var foto = (p.fotos || [])[index];
     if (foto) return '<img class="photo" src="' + esc(foto.src) + '" alt="' + esc(foto.alt || (p.title + " en " + p.zona)) + '" loading="lazy" decoding="async">';
     var n = index + 1, total = p.fotosCount || 1;
     return '<div class="photo photo--ph" role="img" aria-label="Fotografía ' + n + ' de ' + total + ' · ' + esc(p.title + ", " + p.zona) + ' (pendiente de publicación)">' +
-      '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="9.5" r="1.3"/></svg>' +
-      '<span>' + esc(sizeHint || p.title) + '</span></div>';
+      icon("image", 26) + '<span>' + esc(hint || p.title) + "</span></div>";
   }
 
   function favIcon(on, size) {
     var s = size || 20;
-    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" fill="' + (on ? "currentColor" : "none") + '" aria-hidden="true"><path d="M20.8 8.6c0 4.7-8.8 10-8.8 10s-8.8-5.3-8.8-10a5 5 0 0 1 8.8-3.1 5 5 0 0 1 8.8 3.1Z"/></svg>';
+    return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round" fill="' + (on ? "currentColor" : "none") + '" aria-hidden="true">' +
+      '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
   }
 
   function cardHTML(p, variant) {
@@ -250,15 +303,14 @@
         '<div class="card__media">' + photoHTML(p, 0) +
           '<p class="card__badge">' + esc(p.badge) + '</p>' +
           (compact ? "" : '<p class="card__count">1/' + p.fotosCount + '</p>') +
-          '<button class="icon-btn fav" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "Quitar de favoritos" : "Guardar en favoritos") + ': ' + esc(p.title) + '">' + favIcon(fav) + '</button>' +
+          '<button class="icon-btn fav" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "Quitar de guardados" : "Guardar propiedad") + ': ' + esc(p.title) + '">' + favIcon(fav) + '</button>' +
         '</div>' +
         '<div class="card__body">' +
+          '<p class="card__tipo">' + esc(opLabel(p)) + '</p>' +
           '<h3 class="card__title"><a href="#/propiedad/' + esc(p.slug) + '" data-action="open" data-slug="' + esc(p.slug) + '">' + esc(p.title) + '</a></h3>' +
           '<p class="card__zona">' + esc(p.zona) + '</p>' +
           '<p class="card__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
-          (compact ? "" :
-            '<p class="card__meta">' + esc(areaLine(p) || "Superficie por confirmar") + '</p>' +
-            '<p class="card__meta">' + esc(roomsLine(p)) + '</p>') +
+          (compact ? "" : factsHTML(p)) +
         '</div>' +
       '</article>';
   }
@@ -269,8 +321,8 @@
       out += '<div class="skeleton" aria-hidden="true">' +
         '<div class="skeleton__media shimmer"></div>' +
         '<div class="skeleton__body">' +
-          '<div class="skeleton__line skeleton__line--mid"></div>' +
           '<div class="skeleton__line skeleton__line--short"></div>' +
+          '<div class="skeleton__line skeleton__line--mid"></div>' +
           '<div class="skeleton__line"></div>' +
         '</div></div>';
     }
@@ -293,13 +345,13 @@
     var destacadas = DATA.filter(function (p) { return p.op === state.op; }).slice(0, 3);
     return '' +
     '<section class="container hero">' +
-      '<p class="eyebrow">Propiedades con potencial</p>' +
-      '<h1>Encuentra el espacio. Imagina lo que puede ser.</h1>' +
-      '<p class="hero__sub">Terrenos, casas para remodelar y propiedades en zonas consolidadas de la Ciudad de México.</p>' +
+      '<p class="eyebrow">Patrimonio · Inversión · Arquitectura</p>' +
+      '<h1>Encuentra el potencial de tu patrimonio.</h1>' +
+      '<p class="hero__sub">Propiedades, terrenos y oportunidades de inversión en los lugares que importan.</p>' +
 
       '<div class="tabs" role="tablist" aria-label="Operación">' +
-        '<button class="tab" role="tab" id="tab-venta" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
-        '<button class="tab" role="tab" id="tab-renta" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
+        '<button class="tab" role="tab" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
+        '<button class="tab" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
       '</div>' +
 
       '<form class="searchbar" id="home-search" role="search">' +
@@ -315,7 +367,7 @@
           '<label class="searchbar__label" for="max-home">Precio máximo</label>' +
           '<select id="max-home" name="max">' + optionsHTML(maxOptions(), state.max) + '</select>' +
         '</div>' +
-        '<button class="searchbar__submit" type="submit">BUSCAR</button>' +
+        '<button class="searchbar__submit" type="submit">Buscar</button>' +
       '</form>' +
 
       '<div class="chiprow" aria-label="Búsquedas rápidas">' +
@@ -323,25 +375,46 @@
         quick("Terrenos", { tipo: "Terrenos" }) +
         quick("Para remodelar", { remodelar: true, tipo: "Todos" }) +
         quick("Departamentos", { tipo: "Departamentos" }) +
-        quick("Oportunidades", { tipo: "Todos", sort: "Mayor terreno" }) +
+        quick("Inversión", { tipo: "Todos", sort: "Mayor terreno" }) +
+      '</div>' +
+
+      '<div class="herophoto">' +
+        '<div class="photo photo--ph" role="img" aria-label="Fotografía de portada pendiente de publicación">' +
+          icon("image", 28) + '<span>Arquitectura contemporánea · luz natural · piedra y vegetación</span>' +
+        '</div>' +
       '</div>' +
     '</section>' +
 
     '<section class="container section">' +
-      '<hr class="rule">' +
       '<div class="section__head">' +
         '<h2>Selección con potencial</h2>' +
-        '<button class="btn btn--tertiary" data-action="search">Ver todas →</button>' +
+        '<button class="btn btn--link" data-action="search">Ver todas</button>' +
       '</div>' +
       '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>' +
     '</section>' +
 
-    '<section class="container">' +
-      '<hr class="rule" style="margin-top:48px">' +
-      '<div class="pillars">' +
-        pillar("01", "Superficie y frente", "Cada ficha publica superficie de terreno, construcción y frente para evaluar un proyecto.") +
-        pillar("02", "Estado real", "Las propiedades para remodelar se muestran como están, sin filtros que cambien su condición.") +
-        pillar("03", "Potencial explicado", "Posibilidades de intervención presentadas como posibilidades, sujetas a normativa.") +
+    '<section class="section--soft">' +
+      '<div class="container">' +
+        '<p class="eyebrow">Cómo leemos una propiedad</p>' +
+        '<div class="pillars">' +
+          pillar("01", "Datos para decidir", "Cada ficha publica superficie de terreno, construcción y frente: lo que se necesita para evaluar un proyecto.") +
+          pillar("02", "Estado real", "Las propiedades para remodelar se muestran como están, sin tratamientos que cambien su condición.") +
+          pillar("03", "Potencial explicado", "Las posibilidades de intervención se presentan como posibilidades, sujetas a normativa.") +
+        '</div>' +
+      '</div>' +
+    '</section>' +
+
+    '<section class="container" id="nosotros" tabindex="-1">' +
+      '<div class="editorial">' +
+        '<div>' +
+          '<p class="eyebrow">Nosotros</p>' +
+          '<p class="editorial__quote">Patrimonio que trasciende.</p>' +
+        '</div>' +
+        '<div style="display:grid;gap:16px">' +
+          '<p>Legato Capital acompaña decisiones de largo plazo: compra, renta e inversión en propiedades y terrenos con valor hoy y potencial para mañana.</p>' +
+          '<p>Trabajamos con información verificable —superficie, frente, uso de suelo y estado real— para que cada decisión se tome con claridad y no con urgencia.</p>' +
+          '<div><button class="btn btn--olive" data-action="contact">Hablar con un asesor</button></div>' +
+        '</div>' +
       '</div>' +
     '</section>';
   }
@@ -369,13 +442,12 @@
             '<button class="chip' + (state.op === "renta" ? " is-on" : "") + '" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
           '</div>' +
           '<form class="searchline__input" id="results-search" role="search">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6F6D68" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.3-4.3"/></svg>' +
+            icon("search", 18) +
             '<label class="sr-only" for="q-results">Buscar por colonia, alcaldía o ciudad</label>' +
             '<input id="q-results" name="q" type="search" enterkeyhint="search" placeholder="Colonia, alcaldía o ciudad" value="' + esc(state.q) + '">' +
           '</form>' +
-          '<button class="chip filterbtn' + (n ? " is-on" : "") + '" data-action="filters-open" aria-haspopup="dialog">' +
-            '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>' +
-            'Filtros' + (n ? '<span class="filterbtn__count">' + n + "</span>" : "") +
+          '<button class="chip' + (n ? " is-on" : "") + '" data-action="filters-open" aria-haspopup="dialog">' +
+            icon("filter", 17) + 'Filtros' + (n ? '<span class="filterbtn__count">' + n + "</span>" : "") +
           '</button>' +
         '</div>' +
 
@@ -383,7 +455,7 @@
           cs.map(function (c) {
             return '<button class="chip chip--removable" data-action="chip-clear" data-key="' + c.key + '" aria-label="Quitar filtro ' + esc(c.label) + '">' + esc(c.label) + ' ×</button>';
           }).join("") +
-          '<button class="btn btn--tertiary" data-action="clear-all" style="text-decoration:underline;color:var(--text-secondary);font-size:13px">Limpiar filtros</button>' +
+          '<button class="btn btn--link" data-action="clear-all" style="font-size:13px;color:var(--text-secondary)">Limpiar filtros</button>' +
         '</div>' : "") +
 
         '<div class="resultline">' +
@@ -417,11 +489,27 @@
     return results.length + (results.length === 1 ? " propiedad" : " propiedades") + where;
   }
 
+  /* ---------- Guardados ---------- */
+
+  function viewSaved() {
+    var saved = DATA.filter(function (p) { return state.favs[p.slug]; });
+    return '<div class="container results">' +
+      '<p class="eyebrow">Tu selección</p>' +
+      '<h1 style="margin-top:12px">Guardados</h1>' +
+      (saved.length
+        ? '<p class="lead" style="margin-top:12px">' + saved.length + (saved.length === 1 ? " propiedad guardada" : " propiedades guardadas") + ' en este dispositivo.</p>' +
+          '<div class="grid" style="margin-top:32px">' + saved.map(function (p) { return cardHTML(p); }).join("") + "</div>"
+        : '<div class="state" style="margin-top:24px"><h3>Aún no guardas propiedades.</h3>' +
+          '<p>Toca el marcador de una propiedad para conservarla aquí y compararla después.</p>' +
+          '<button class="btn btn--primary" data-action="search">Explorar propiedades</button></div>') +
+    '</div>';
+  }
+
   /* ---------- Detalle ---------- */
 
   function viewDetail() {
     var p = DATA.filter(function (x) { return x.slug === state.sel; })[0];
-    if (!p) return '<div class="container"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
+    if (!p) return '<div class="container results"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
 
     var fav = !!state.favs[p.slug];
     var total = Math.max(1, p.fotosCount || 1);
@@ -463,23 +551,23 @@
 
       '<div class="detail__head">' +
         '<div>' +
-          '<p class="eyebrow" style="letter-spacing:.14em">' + esc(p.badge) + '</p>' +
+          '<p class="eyebrow">' + esc(tipoLabel(p)) + ' · ' + esc(p.badge) + '</p>' +
           '<h1>' + esc(p.title) + '</h1>' +
           '<p class="detail__zona">' + esc(p.zona) + '</p>' +
         '</div>' +
         '<div class="detail__actions">' +
-          '<button class="btn btn--quiet" data-action="share">Compartir</button>' +
-          '<button class="btn btn--quiet" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '">' + favIcon(fav, 18) + (fav ? "Guardada" : "Guardar") + '</button>' +
+          '<button class="btn btn--quiet btn--sm" data-action="share">Compartir</button>' +
+          '<button class="btn btn--quiet btn--sm" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '">' + favIcon(fav, 17) + (fav ? "Guardada" : "Guardar") + '</button>' +
         '</div>' +
       '</div>' +
 
       '<div class="detail__layout">' +
         '<div>' +
           '<p class="detail__price"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span><span class="sr-only">' + esc(priceLabel(p.price, p.op)) + '</span></p>' +
-          '<p class="detail__pricemeta">' + esc([areaLine(p), roomsLine(p)].filter(Boolean).join(" · ")) + '</p>' +
-          '<hr class="rule" style="margin:32px 0">' +
+          '<p class="detail__pricemeta">' + esc(metaLine(p)) + '</p>' +
+          '<hr class="rule" style="margin-top:32px">' +
 
-          '<h2 style="margin-top:0">Descripción</h2>' +
+          '<h2>Descripción</h2>' +
           '<p class="body">' + esc(p.desc) + '</p>' +
 
           '<div class="potential">' +
@@ -495,26 +583,26 @@
 
           '<h2>Ubicación</h2>' +
           '<div class="location">' +
-            '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="2.6"/></svg>' +
+            icon("pin", 20) +
             '<p class="location__zona">' + esc(p.zona) + '</p>' +
-            '<a class="btn btn--secondary" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener noreferrer">' +
-              'Ver en Google Maps<span class="sr-only"> (se abre en una pestaña nueva)</span>' +
-              '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 14v4a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 18V7.5A1.5 1.5 0 0 1 6 6h4"/></svg>' +
+            '<a class="btn btn--quiet" href="' + esc(mapsUrl(p)) + '" target="_blank" rel="noopener noreferrer">' +
+              'Ver en Google Maps<span class="sr-only"> (se abre en una pestaña nueva)</span>' + icon("external", 16) +
             '</a>' +
           '</div>' +
         '</div>' +
 
         '<aside class="aside">' +
-          '<p class="aside__label">ASESOR</p>' +
-          '<p class="aside__name">Espacios Lazza · ' + esc(p.zona.split(",")[0]) + '</p>' +
-          '<button class="btn btn--primary btn--lg btn--block" data-action="contact">Contactar</button>' +
-          '<button class="btn btn--secondary btn--lg btn--block" data-action="visita">Agendar visita</button>' +
-          '<button class="btn btn--tertiary btn--block" data-action="save-search">Guardar búsqueda</button>' +
+          '<p class="aside__label">Asesor patrimonial</p>' +
+          '<p class="aside__name">Legato Capital · ' + esc(p.zona.split(",")[0]) + '</p>' +
+          '<button class="btn btn--primary btn--block" data-action="contact">Contactar</button>' +
+          '<button class="btn btn--olive btn--block" data-action="visita">Agendar visita</button>' +
+          '<button class="btn btn--link btn--block" data-action="save-search">Guardar búsqueda</button>' +
+          '<p class="aside__note">Respondemos con información verificable sobre superficie, uso de suelo y estado del inmueble.</p>' +
         '</aside>' +
       '</div>' +
 
-      '<hr class="rule" style="margin:64px 0 0">' +
-      '<h2>Propiedades similares</h2>' +
+      '<hr class="rule" style="margin-top:64px">' +
+      '<h2 style="margin-block:48px 24px">Propiedades similares</h2>' +
       '<div class="scroller">' + similares.map(function (s) { return cardHTML(s, "compact"); }).join("") + '</div>' +
     '</div>' +
 
@@ -526,28 +614,43 @@
     '</div>';
   }
 
-  /* ---------- Navegación (header y drawer) ---------- */
+  /* ---------- Navegación ---------- */
 
   function navItems() {
     return [
       { label: "Comprar", on: state.screen === "results" && state.op === "venta", patch: { op: "venta", tipo: "Todos", remodelar: false } },
       { label: "Rentar", on: state.op === "renta", patch: { op: "renta", tipo: "Todos", remodelar: false } },
       { label: "Terrenos", on: state.tipo === "Terrenos", patch: { tipo: "Terrenos" } },
-      { label: "Para remodelar", on: state.remodelar, patch: { remodelar: true, tipo: "Todos" } },
-      { label: "Zonas", on: false, patch: { q: "" } }
+      { label: "Inversión", on: state.sort === "Mayor terreno", patch: { tipo: "Todos", sort: "Mayor terreno" } }
     ];
   }
 
   function renderNav() {
     var items = navItems();
-    document.getElementById("nav-desktop").innerHTML = items.map(function (n) {
+    var desktop = items.map(function (n) {
       return '<button class="navlink' + (n.on ? " is-active" : "") + '" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) + "</button>";
-    }).join("");
+    }).join("") + '<button class="navlink" data-action="nosotros">Nosotros</button>';
+    document.getElementById("nav-desktop").innerHTML = desktop;
+
     document.getElementById("nav-mobile").innerHTML = items.map(function (n) {
       return '<button class="drawer__link" data-action="quick" data-patch=\'' + esc(JSON.stringify(n.patch)) + '\'>' + esc(n.label) +
         (n.on ? '<span class="sr-only"> (activo)</span>' : "") + "</button>";
-    }).join("") +
-      '<button class="drawer__link" data-action="favs">Favoritos</button>';
+    }).join("") + '<button class="drawer__link" data-action="nosotros">Nosotros</button>';
+
+    var tabs = [
+      { key: "home", label: "Inicio", ico: "home", action: "home" },
+      { key: "results", label: "Buscar", ico: "search", action: "search" },
+      { key: "saved", label: "Guardados", ico: "bookmark", action: "favs" },
+      { key: "perfil", label: "Perfil", ico: "user", action: "cuenta" }
+    ];
+    var fc = favCount();
+    bottomnav.innerHTML = tabs.map(function (t) {
+      var current = state.screen === t.key || (t.key === "results" && state.screen === "detail");
+      return '<button class="bottomnav__item" data-action="' + t.action + '"' + (current ? ' aria-current="page"' : "") + '>' +
+        icon(t.ico, 22) +
+        (t.key === "saved" && fc ? '<span class="bottomnav__badge" aria-hidden="true">' + fc + "</span>" : "") +
+        '<span>' + t.label + "</span></button>";
+    }).join("");
   }
 
   /* ============================ render ============================ */
@@ -555,15 +658,16 @@
   function render() {
     var html = state.screen === "results" ? viewResults()
              : state.screen === "detail" ? viewDetail()
+             : state.screen === "saved" ? viewSaved()
              : viewHome();
     main.innerHTML = html;
     renderNav();
     document.body.classList.toggle("has-actionbar", state.screen === "detail");
     document.title = state.screen === "detail"
-      ? (DATA.filter(function (p) { return p.slug === state.sel; })[0] || {}).title + " · Espacios Lazza"
-      : state.screen === "results"
-        ? "Resultados · Espacios Lazza"
-        : "Espacios Lazza · Propiedades con potencial";
+      ? ((DATA.filter(function (p) { return p.slug === state.sel; })[0] || {}).title || "Propiedad") + " · Legato Capital"
+      : state.screen === "results" ? "Resultados · Legato Capital"
+      : state.screen === "saved" ? "Guardados · Legato Capital"
+      : "Legato Capital · Patrimonio que trasciende";
     bindViewEvents();
   }
 
@@ -627,7 +731,7 @@
     overlay.classList.remove("is-open");
     document.body.classList.remove("is-locked");
     setExpanded(false);
-    setTimeout(function () { drawer.hidden = true; if (sheet.hidden) overlay.hidden = true; }, 240);
+    setTimeout(function () { drawer.hidden = true; if (sheet.hidden) overlay.hidden = true; }, 320);
     if (!silent && lastFocus) lastFocus.focus();
   }
   function setExpanded(v) {
@@ -651,9 +755,7 @@
     return '' +
     '<div class="sheet__head">' +
       '<h2 id="sheet-title">Filtros</h2>' +
-      '<button class="icon-btn" data-action="filters-close" aria-label="Cerrar filtros">' +
-        '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
-      '</button>' +
+      '<button class="icon-btn" data-action="filters-close" aria-label="Cerrar filtros">' + icon("close", 22) + '</button>' +
     '</div>' +
 
     '<div class="sheet__body">' +
@@ -677,7 +779,7 @@
         '</div>' +
       '</fieldset>' +
 
-      '<fieldset class="fieldset' + (priceError ? " field--error" : "") + '">' +
+      '<fieldset class="fieldset">' +
         '<legend>' + (draft.op === "renta" ? "Renta mensual (MXN)" : "Precio (MXN)") + '</legend>' +
         '<div class="pair">' +
           '<div class="field"><label for="f-min">Mínimo</label>' +
@@ -686,7 +788,7 @@
             '<input type="text" inputmode="numeric" id="f-max" data-draft="max" value="' + (draft.max ? draft.max.toLocaleString("en-US") : "") + '" placeholder="Sin máximo"' +
             (priceError ? ' aria-invalid="true" aria-describedby="f-max-error"' : "") + '></div>' +
         '</div>' +
-        (priceError ? '<p class="field__error" id="f-max-error"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/></svg>El precio máximo debe ser mayor al mínimo.</p>' : "") +
+        (priceError ? '<p class="field__error" id="f-max-error">' + icon("alert", 16) + 'El precio máximo debe ser mayor al mínimo.</p>' : "") +
       '</fieldset>' +
 
       '<fieldset class="fieldset">' +
@@ -705,8 +807,8 @@
     '</div>' +
 
     '<div class="sheet__foot">' +
-      '<button class="btn btn--tertiary" data-action="filters-clear">Limpiar</button>' +
-      '<button class="btn btn--primary btn--lg" data-action="filters-apply"' + (priceError ? " disabled" : "") + '>' +
+      '<button class="btn btn--link" data-action="filters-clear">Limpiar</button>' +
+      '<button class="btn btn--primary" data-action="filters-apply"' + (priceError ? " disabled" : "") + '>' +
         (count === 1 ? "Ver 1 propiedad" : "Ver " + count + " propiedades") + '</button>' +
     '</div>';
   }
@@ -727,7 +829,6 @@
     var scroll = sheet.querySelector(".sheet__body");
     var top = scroll ? scroll.scrollTop : 0;
     var activeId = document.activeElement && document.activeElement.id;
-    var selStart = document.activeElement && document.activeElement.selectionStart;
     sheet.innerHTML = sheetHTML();
     var body = sheet.querySelector(".sheet__body");
     if (body) body.scrollTop = top;
@@ -735,7 +836,7 @@
       var el = document.getElementById(activeId);
       if (el) {
         el.focus();
-        if (selStart != null && el.setSelectionRange) {
+        if (el.setSelectionRange) {
           try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
         }
       }
@@ -746,7 +847,7 @@
     sheet.classList.remove("is-open");
     overlay.classList.remove("is-open");
     document.body.classList.remove("is-locked");
-    setTimeout(function () { sheet.hidden = true; if (drawer.hidden) overlay.hidden = true; }, 240);
+    setTimeout(function () { sheet.hidden = true; if (drawer.hidden) overlay.hidden = true; }, 320);
     draft = null;
     if (!silent && lastFocus) lastFocus.focus();
   }
@@ -765,7 +866,7 @@
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
 
-  /* ============================ eventos globales ============================ */
+  /* ============================ eventos ============================ */
 
   function numFrom(v) { return Number(String(v).replace(/[^0-9]/g, "")) || 0; }
 
@@ -785,7 +886,7 @@
 
     var action = t.getAttribute("data-action");
 
-    // Card completa clicable, pero el corazón conserva acción propia.
+    // Card completa clicable, pero el marcador conserva acción propia.
     if (!action && t.classList.contains("card")) {
       go("detail", { sel: t.getAttribute("data-slug") });
       return;
@@ -795,10 +896,14 @@
       case "home": e.preventDefault(); go("home"); break;
       case "menu-open": openDrawer(); break;
       case "menu-close": closeDrawer(); break;
-      case "favs": {
-        var n = Object.keys(state.favs).length;
-        toast(n === 0 ? "Aún no guardas propiedades en Favoritos." : n + (n === 1 ? " propiedad guardada en Favoritos." : " propiedades en Favoritos."));
-        closeDrawer();
+      case "favs": closeDrawer(true); go("saved"); break;
+      case "nosotros": {
+        closeDrawer(true);
+        if (state.screen !== "home") go("home");
+        setTimeout(function () {
+          var el = document.getElementById("nosotros");
+          if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); }
+        }, 60);
         break;
       }
       case "publicar": toast("Publicar propiedad estará disponible en la siguiente fase."); closeDrawer(); break;
@@ -822,7 +927,7 @@
         var on = !state.favs[slug];
         if (on) state.favs[slug] = true; else delete state.favs[slug];
         saveFavs();
-        toast(on ? "Propiedad guardada en Favoritos." : "Propiedad quitada de Favoritos.");
+        toast(on ? "Propiedad guardada." : "Propiedad quitada de Guardados.");
         render();
         break;
       }
@@ -846,26 +951,20 @@
         draft = Object.assign({}, draft, DEFAULTS, { op: draft.op, sort: draft.sort, q: draft.q });
         refreshSheet();
         break;
-      case "filters-apply": {
+      case "filters-apply":
         Object.assign(state, draft);
         closeSheet();
         go("results", null, { replace: true });
         break;
-      }
       case "retry": startLoading(); break;
       case "share": {
         var url = location.href;
-        var title = document.title;
-        if (navigator.share) {
-          navigator.share({ title: title, url: url }).catch(function () {});
-        } else if (navigator.clipboard) {
-          navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado."); });
-        } else {
-          toast(url);
-        }
+        if (navigator.share) navigator.share({ title: document.title, url: url }).catch(function () {});
+        else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () { toast("Enlace copiado."); });
+        else toast(url);
         break;
       }
-      case "contact": toast("Te contactaremos para dar seguimiento a esta propiedad."); break;
+      case "contact": toast("Un asesor de Legato Capital te contactará para dar seguimiento."); break;
       case "visita": toast("Agenda de visitas disponible en la siguiente fase."); break;
       case "save-search": toast("Búsqueda guardada."); break;
     }
