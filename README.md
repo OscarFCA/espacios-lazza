@@ -233,7 +233,13 @@ Ninguna pantalla produce scroll horizontal.
 
 - Todo el texto renderizado pasa 4.5:1 (3:1 en texto grande); hay una auditoría
   automatizada de contraste sobre las cinco pantallas.
-- Objetivos táctiles ≥ 44 × 44 px; los chips crecen en `pointer: coarse`.
+- **Objetivos táctiles por token.** `--target` vale 44 px (mínimo de Apple y piso de
+  la WCAG) y sube a **48 px en `pointer: coarse`**, la recomendación de Material; el
+  icono dentro pasa de 20 a **24 px**, que es lo que hace que un botón se *vea* del
+  tamaño que mide. Lo usan los botones de icono, el retrato, el marcador de las
+  tarjetas, los chips, los botones pequeños y los enlaces.
+- En los interruptores la etiqueta ocupa toda la fila: antes el único objetivo era la
+  casilla de 24 px.
 - Estado seleccionado nunca depende solo del color: cambia fondo, peso y marca ✓.
 - Foco visible con halo olivo, navegación por teclado, `Escape` cierra drawer y sheet,
   foco atrapado dentro de ambos y devuelto al control que los abrió.

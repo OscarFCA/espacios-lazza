@@ -104,6 +104,15 @@
   --header-h: 64px;    /* mobile 64 → desktop 72 */
   --bottomnav-h: 64px;
   --safe-b: env(safe-area-inset-bottom, 0px);
+
+  /* Objetivo táctil: 44 px es el mínimo de Apple y el piso de la WCAG; 48 px es
+     la recomendación de Material y lo que se siente cómodo con el pulgar. El
+     icono dentro va a 24 px: a 20 px el botón cumple pero se lee pequeño. */
+  --target: 44px;
+  --icono: 20px;
+}
+@media (pointer: coarse) {
+  :root { --target: 48px; --icono: 24px; }
 }
 
 /* A partir de tablet la navegación vive en el header: la barra inferior
