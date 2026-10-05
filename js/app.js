@@ -920,25 +920,8 @@
   function bindViewEvents() {
     var homeForm = document.getElementById("home-search");
     if (homeForm) {
-      homeForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-        state.q = homeForm.q.value;
-        state.tipos = homeForm.tipo.value ? [homeForm.tipo.value] : [];
-        state.max = Number(homeForm.max.value) || 0;
-        go("results");
-      });
       homeForm.tipo.addEventListener("change", function () { state.tipos = this.value ? [this.value] : []; });
       homeForm.max.addEventListener("change", function () { state.max = Number(this.value) || 0; });
-    }
-
-    var resultsForm = document.getElementById("results-search");
-    if (resultsForm) {
-      resultsForm.addEventListener("submit", function (e) {
-        e.preventDefault();
-        state.q = resultsForm.q.value;
-        resultsForm.q.blur();
-        go("results", null, { replace: true });
-      });
     }
 
     var sort = document.getElementById("sort");
@@ -946,15 +929,6 @@
       state.sort = this.value;
       go("results", null, { replace: true });
     });
-
-    var loginForm = document.getElementById("login-form");
-    if (loginForm) loginForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      if (document.getElementById("lg-pass")) loginAdmin(); else loginPaso1();
-    });
-
-    var regForm = document.getElementById("registro-form");
-    if (regForm) regForm.addEventListener("submit", function (e) { e.preventDefault(); enviarRegistro(); });
 
     var track = document.getElementById("gallery-track");
     if (track) {
@@ -1193,10 +1167,11 @@
 
   var loginId = "";
 
+
   function loginHTML(paso, error, nombre) {
     var campoId = '<div class="field' + (error === "no-existe" ? " field--error" : "") + '">' +
       '<label for="lg-id">Correo o teléfono</label>' +
-      '<input id="lg-id" name="id" type="text" autocomplete="username" inputmode="email" value="' + esc(loginId) + '"' +
+      '<input id="lg-id" name="cuenta" type="text" autocomplete="username" inputmode="email" value="' + esc(loginId) + '"' +
       (error === "no-existe" ? ' aria-invalid="true" aria-describedby="lg-id-e"' : "") + '>' +
       (error === "no-existe"
         ? '<p class="field__error" id="lg-id-e">' + icon("alert", 16) + 'No encontramos una cuenta con esos datos.</p>'
@@ -1206,9 +1181,8 @@
     var cuerpo = paso === 2
       ? '<p class="lead">Hola, ' + esc(nombre || "equipo") + '.</p>' +
         '<p class="small" style="color:var(--text-secondary);margin-top:8px">Esta cuenta es del equipo: escribe la contraseña para abrir el panel.</p>' +
-        '<form id="login-form" style="display:grid;gap:16px;margin-top:20px">' +
-          '<div class="field"><label for="lg-id-fijo">Cuenta</label>' +
-            '<input id="lg-id-fijo" value="' + esc(loginId) + '" readonly></div>' +
+        '<p class="small" style="margin-top:16px"><strong>' + esc(loginId) + '</strong></p>' +
+        '<form id="login-form" style="display:grid;gap:16px;margin-top:12px">' +
           '<div class="field' + (error === "password" ? " field--error" : "") + '">' +
             '<label for="lg-pass">Contraseña</label>' +
             '<input id="lg-pass" name="pass" type="password" autocomplete="current-password"' +
@@ -1244,7 +1218,7 @@
 
   function loginPaso1() {
     var f = document.getElementById("login-form");
-    loginId = (f && f.id && f.id.value || "").trim();
+    loginId = (f && f.elements.cuenta ? f.elements.cuenta.value : "").trim();
     var r = S.buscarCuenta(loginId);
     if (!r.existe) { openSheet(loginHTML(1, "no-existe")); return; }
     if (r.admin) { openSheet(loginHTML(2, null, r.nombre)); return; }
@@ -1449,6 +1423,60 @@
       case "contact": toast("Un asesor de Legato Capital te contactará para dar seguimiento."); break;
       case "visita": toast("Agenda de visitas disponible en la siguiente fase."); break;
       case "save-search": toast("Búsqueda guardada."); break;
+    }
+  });
+
+  /* Delegado: los formularios viven en pantallas y en paneles que se crean en
+     momentos distintos. Sin esto, Enter dispara el envío nativo del navegador,
+     recarga la página y tira lo que se estaba capturando. */
+  var ACCION_PANEL = {
+    "login-form": function () { return document.getElementById("lg-pass") ? "login-admin" : "login-next"; },
+    "registro-form": function () { return "registro-submit"; },
+    "lead-form": function () { return "lead-save"; },
+    "prop-form": function () { return "prop-save"; }
+  };
+
+  sheet.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    var el = e.target;
+    if (!el.tagName || ["TEXTAREA", "BUTTON", "SELECT", "A"].indexOf(el.tagName) >= 0) return;
+    var form = el.closest ? el.closest("form") : null;
+    if (!form) return;
+    var cual = ACCION_PANEL[form.getAttribute("id")];
+    if (!cual) return;
+    e.preventDefault();
+    var b = sheet.querySelector('[data-action="' + cual() + '"]');
+    if (b && !b.disabled) b.click();
+  });
+
+  document.addEventListener("submit", function (e) {
+    var f = e.target;
+    var cual = f.getAttribute("id");   // f.id lo sombrea cualquier control llamado "id"
+    e.preventDefault();
+
+    if (cual === "home-search") {
+      state.q = f.q.value;
+      state.tipos = f.tipo.value ? [f.tipo.value] : [];
+      state.max = Number(f.max.value) || 0;
+      go("results");
+      return;
+    }
+    if (cual === "results-search") {
+      state.q = f.q.value;
+      f.q.blur();
+      go("results", null, { replace: true });
+      return;
+    }
+    // En los paneles, Enter hace exactamente lo que su botón principal.
+    var boton = {
+      "login-form": document.getElementById("lg-pass") ? "login-admin" : "login-next",
+      "registro-form": "registro-submit",
+      "lead-form": "lead-save",
+      "prop-form": "prop-save"
+    }[cual];
+    if (boton) {
+      var b = sheet.querySelector('[data-action="' + boton + '"]');
+      if (b && !b.disabled) b.click();
     }
   });
 
