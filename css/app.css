@@ -358,7 +358,12 @@ body { padding-bottom: calc(var(--bottomnav-h) + var(--safe-b)); }
   border-radius: var(--radius-sm); font-size: 11px; font-weight: 600;
 }
 .card__body { padding: var(--space-lg); }
-.card__tipo { font-size: var(--fs-label); font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--action-accent); }
+.card__tipo {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs);
+  font-size: var(--fs-label); font-weight: 600; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--action-accent);
+}
+.card__tipo .tag { letter-spacing: .04em; }
 .card__title { font-size: var(--fs-h4); line-height: 1.3; font-weight: 600; letter-spacing: 0; margin-top: 6px; }
 /* Toda la card es el objetivo táctil; el corazón queda por encima. */
 .card__title a::after { content: ""; position: absolute; inset: 0; z-index: 1; }
@@ -375,11 +380,17 @@ body { padding-bottom: calc(var(--bottomnav-h) + var(--safe-b)); }
 .card--compact .card__price { font-size: var(--fs-body); }
 
 /* ---------- Etiquetas de categoría y estado ---------- */
-.tags { position: absolute; left: var(--space-sm); bottom: var(--space-sm); z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 96px); }
+.tags {
+  position: absolute; left: var(--space-sm); bottom: var(--space-sm); z-index: 2;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  max-width: calc(100% - 76px);   /* deja libre el contador de fotos */
+}
+/* En la ficha el contador vive abajo, así que las etiquetas van arriba. */
+.gallery > .tags { top: var(--space-sm); bottom: auto; max-width: calc(100% - 24px); }
 .tag {
   display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 9px; border-radius: var(--radius-sm);
-  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+  padding: 5px 8px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap;
 }
 .tag--casa { background: var(--tag-casa-bg); color: var(--tag-casa-fg); }
 .tag--departamento { background: var(--tag-depto-bg); color: var(--tag-depto-fg); }

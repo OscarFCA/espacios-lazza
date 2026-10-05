@@ -92,14 +92,21 @@
     "Terreno": "terreno", "Casa de descanso": "descanso"
   };
 
-  /* Etiquetas de la fotografía: la categoría siempre, y la condición solo cuando
-     dice algo que el tipo no dice (obra pendiente). Nunca más de dos. */
+  /* Sobre la fotografía va UNA sola etiqueta: la categoría. Con dos, en tarjetas
+     angostas saltaban a un segundo renglón y se comían la imagen. */
   function tagsHTML(p) {
-    var t = ['<span class="tag tag--' + (CLASE_TIPO[p.tipo] || "casa") + '">' + esc(p.tipo) + "</span>"];
-    if (p.condicion === "Para remodelar") t.push('<span class="tag tag--remodelar">Para remodelar</span>');
-    else if (p.condicion === "Obra negra") t.push('<span class="tag tag--obra">Obra negra</span>');
-    else if (p.exclusiva) t.push('<span class="tag tag--anticipado">Acceso anticipado</span>');
-    return '<div class="tags">' + t.join("") + "</div>";
+    return '<div class="tags"><span class="tag tag--' + (CLASE_TIPO[p.tipo] || "casa") + '">' +
+      esc(p.tipo) + "</span></div>";
+  }
+
+  /* La condición y el acceso anticipado viajan en el cuerpo, junto a la operación:
+     ahí pueden fluir sin tapar nada. */
+  function estadoHTML(p) {
+    var t = "";
+    if (p.condicion === "Para remodelar") t += '<span class="tag tag--remodelar">Para remodelar</span>';
+    else if (p.condicion === "Obra negra") t += '<span class="tag tag--obra">Obra negra</span>';
+    if (p.exclusiva) t += '<span class="tag tag--anticipado">Acceso anticipado</span>';
+    return t;
   }
   function negociableHTML(p) {
     return p.negociable ? '<span class="tag tag--negociable">Precio negociable</span>' : "";
@@ -384,7 +391,7 @@
           '<button class="icon-btn fav" data-action="fav" data-slug="' + esc(p.slug) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? "Quitar de guardados" : "Guardar propiedad") + ': ' + esc(p.title) + '">' + favIcon(fav) + '</button>' +
         '</div>' +
         '<div class="card__body">' +
-          '<p class="card__tipo">' + esc(opLabel(p)) + '</p>' +
+          '<p class="card__tipo">' + esc(opLabel(p)) + estadoHTML(p) + '</p>' +
           '<h3 class="card__title"><a href="#/propiedad/' + esc(p.slug) + '" data-action="open" data-slug="' + esc(p.slug) + '">' + esc(p.title) + '</a></h3>' +
           '<p class="card__zona">' + esc(p.zona) + '</p>' +
           '<p class="card__price precio-fila"><span aria-hidden="true">' + esc(money(p.price, p.op)) + '</span>' +

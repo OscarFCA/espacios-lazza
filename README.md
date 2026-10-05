@@ -128,7 +128,12 @@ precio, no entre las categorías, porque no es una categoría.
 **Etiquetas de color.** Cada tipo tiene su par fondo/texto, todos verificados por encima
 de 4.5:1 a 11 px: Casa (olivo), Departamento (gris cálido), Terreno (ocre), Casa de
 descanso (verde azulado), Para remodelar (terracota), Obra negra (piedra), Acceso
-anticipado (carbón). Nunca más de dos etiquetas sobre la fotografía.
+anticipado (carbón).
+
+Sobre la fotografía va **una sola**: la categoría. La condición y el acceso anticipado
+viajan en el cuerpo, junto a la operación ("EN VENTA · PARA REMODELAR"), donde pueden
+fluir sin tapar la imagen. Con dos encima, en tarjetas angostas saltaban a un segundo
+renglón.
 
 El nav se simplificó a **Comprar · Rentar · Oportunidades · Nosotros**: los tipos viven
 en los filtros, no duplicados en la navegación. *Inversión* desapareció porque no
