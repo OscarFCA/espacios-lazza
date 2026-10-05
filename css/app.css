@@ -93,6 +93,17 @@ dl, dd { margin: 0; }
   transition: border-color var(--duration-hover) var(--ease), color var(--duration-hover) var(--ease);
 }
 .icon-btn svg { width: var(--icono); height: var(--icono); }
+
+/* En el header los iconos son la única navegación del teléfono: necesitan
+   superficie para leerse como botones, y trazo más firme para no desaparecer
+   junto a un logotipo de 30 px. La esquina recta mantiene el lenguaje del
+   brandbook, que pide evitar lo muy redondeado. */
+.header .icon-btn {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+.header .icon-btn:hover { border-color: var(--action-primary); color: var(--action-primary); }
+.header .icon-btn svg { width: 26px; height: 26px; stroke-width: 1.8; }
 .icon-btn:hover { border-color: var(--border-default); color: var(--action-accent); }
 
 /* ---------- Header (§19) ---------- */
@@ -110,7 +121,7 @@ dl, dd { margin: 0; }
 .drawer__logo { height: 26px; width: auto; }
 .footer__logo { height: 34px; width: auto; }
 .header__nav { display: none; }
-.header__actions { display: flex; align-items: center; gap: var(--space-micro); }
+.header__actions { display: flex; align-items: center; gap: var(--space-xs); }
 .header__cta { display: none; }
 
 @media (min-width: 768px) {
@@ -807,7 +818,7 @@ body.is-admin .footer { display: none; }
   border-radius: var(--radius-pill); padding: 0; overflow: visible;
   transition: background var(--duration-hover) var(--ease), box-shadow var(--duration-hover) var(--ease);
 }
-.avatar img { width: calc(var(--icono) - 2px); height: auto; }
+.avatar img { width: var(--icono); height: auto; }
 .avatar:hover { background: var(--action-primary-hover); box-shadow: 0 0 0 3px var(--focus-halo); }
 .avatar--lg { width: 72px; height: 72px; }
 .avatar--lg img { width: 34px; }

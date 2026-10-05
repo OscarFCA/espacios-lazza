@@ -240,6 +240,10 @@ Ninguna pantalla produce scroll horizontal.
   tarjetas, los chips, los botones pequeños y los enlaces.
 - En los interruptores la etiqueta ocupa toda la fila: antes el único objetivo era la
   casilla de 24 px.
+- **Los botones del header llevan superficie** (fondo blanco, borde fino, esquina
+  recta) e icono de 26 px con trazo 1.8. Sin ella se leían pequeños junto a un
+  logotipo de 30 px, aunque midieran 48. De paso empatan con el contorno de
+  *Iniciar sesión*.
 - Estado seleccionado nunca depende solo del color: cambia fondo, peso y marca ✓.
 - Foco visible con halo olivo, navegación por teclado, `Escape` cierra drawer y sheet,
   foco atrapado dentro de ambos y devuelto al control que los abrió.
