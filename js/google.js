@@ -4,15 +4,15 @@
  * Identity Services usa un client_id público (no hay secreto que esconder) y
  * Google restringe su uso al origen que se registró en la consola.
  *
- * Qué hace falta para encenderlo, una sola vez:
- *   1. console.cloud.google.com → proyecto nuevo → habilitar "Google Calendar API".
- *   2. Pantalla de consentimiento OAuth. Mientras no esté verificada por Google,
- *      agrega la cuenta de Legato como "usuario de prueba".
- *   3. Credenciales → ID de cliente de OAuth → tipo "Aplicación web".
- *      Orígenes autorizados de JavaScript:
- *        https://oscarfca.github.io
- *        http://localhost:8777   (para probar en local)
- *   4. Pega el ID aquí abajo.
+ * El ID de cliente ya está puesto. Es público por diseño —viaja en el HTML de
+ * cualquier sitio que use Google—; lo que impide que otro lo use es la lista de
+ * orígenes autorizados en la consola, no el secreto. Aquí nunca va un
+ * client_secret: este flujo no usa ninguno.
+ *
+ * Si el sitio cambia de dirección hay que agregar el origen nuevo en
+ * console.cloud.google.com/auth/clients, o Google rechaza la conexión.
+ * Los pasos completos están en:
+ *   Hel3na/documentos/2026-10-13_pasos-google-calendar-legato.md
  *
  * El token de acceso NO se guarda en el navegador: vive en memoria y se vuelve
  * a pedir —sin molestar a nadie— cuando hace falta. Lo que sí se guarda es a
@@ -21,7 +21,7 @@
 (function () {
   "use strict";
 
-  var CLIENT_ID = "";   // ← pega aquí el ID de cliente de OAuth
+  var CLIENT_ID = "215909175539-5btbiuqb6t7mqt8l74juj3io6mc3buqp.apps.googleusercontent.com";
   var SCOPES = "https://www.googleapis.com/auth/calendar.readonly " +
                "https://www.googleapis.com/auth/calendar.events";
   var GSI = "https://accounts.google.com/gsi/client";
