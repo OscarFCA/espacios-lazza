@@ -690,7 +690,7 @@
         '<div class="perfil__id">' +
           '<p class="eyebrow">' + (S.esAdmin() ? "Tu cuenta · Equipo Legato" : "Tu cuenta") + '</p>' +
           '<h1>' + esc(u.nombre) + '</h1>' +
-          '<p>' + esc(u.correo) + ' · ' + esc(u.telefono) + '</p>' +
+          '<p>' + esc(u.correo) + ' · ' + esc(S.telMostrar(u)) + '</p>' +
         '</div>' +
         '<div class="perfil__acciones">' +
           (S.esAdmin() && state.perfilTab !== "perfil"
@@ -1164,6 +1164,41 @@
 
   /* ======================= registro y cuenta ======================= */
 
+  /* El teléfono es lada + número. México viene elegido porque es el mercado;
+     el selector se queda angosto para que el número conserve el ancho útil. */
+  function paisOptions(sel) {
+    return S.PAISES.map(function (p) {
+      return '<option value="' + p.id + '"' + (p.id === (sel || S.PAIS_DEF) ? " selected" : "") + '>' +
+        esc(p.nombre) + " +" + p.lada + "</option>";
+    }).join("");
+  }
+
+  function campoTel(pre, error, v) {
+    v = v || {};
+    var p = S.paisDe(v.pais);
+    return '<div class="field' + (error ? " field--error" : "") + '">' +
+      '<label for="' + pre + '-tel">Teléfono</label>' +
+      '<div class="telfield">' +
+        '<select id="' + pre + '-pais" name="pais" aria-label="País del teléfono">' + paisOptions(v.pais) + '</select>' +
+        '<input id="' + pre + '-tel" name="telefono" type="tel" autocomplete="tel" inputmode="tel" required ' +
+          'placeholder="' + p.min + ' dígitos" value="' + esc(v.telefono || "") + '"' +
+          (error ? ' aria-invalid="true" aria-describedby="' + pre + '-tel-e"' : "") + '>' +
+      '</div>' +
+      (error ? '<p class="field__error" id="' + pre + '-tel-e">' + icon("alert", 16) + esc(error) + "</p>" : "") +
+    '</div>';
+  }
+
+  /* Cambiar de país cambia cuántos dígitos se esperan: decirlo en el momento
+     evita que el error aparezca hasta después de enviar. */
+  function ligarPais(pre) {
+    var sel = document.getElementById(pre + "-pais");
+    var inp = document.getElementById(pre + "-tel");
+    if (!sel || !inp) return;
+    sel.addEventListener("change", function () {
+      inp.placeholder = S.paisDe(sel.value).min + " dígitos";
+    });
+  }
+
   function registroHTML(contexto, errores, valores) {
     errores = errores || {};
     valores = valores || {};
@@ -1187,7 +1222,7 @@
       '<form id="registro-form" style="display:grid;gap:16px;margin-top:20px">' +
         campo("rg-nombre", "nombre", "Nombre completo", "text", 'autocomplete="name" required') +
         campo("rg-correo", "correo", "Correo", "email", 'autocomplete="email" inputmode="email" required') +
-        campo("rg-tel", "telefono", "Teléfono", "tel", 'autocomplete="tel" inputmode="tel" placeholder="10 dígitos" required') +
+        campoTel("rg", errores.telefono, valores) +
         '<p class="small" style="color:var(--text-secondary)">Usamos tus datos para darte seguimiento sobre las propiedades que te interesen. Nada más.</p>' +
       '</form>' +
     '</div>' +
@@ -1275,17 +1310,18 @@
 
   function pedirRegistro(contexto, despues) {
     accionPendiente = despues || null;
-    openSheet(registroHTML(contexto));
+    openSheet(registroHTML(contexto), function () { ligarPais("rg"); });
   }
 
   function enviarRegistro() {
     var f = document.getElementById("registro-form");
     var datos = {
-      nombre: f.nombre.value, correo: f.correo.value, telefono: f.telefono.value,
+      nombre: f.nombre.value, correo: f.correo.value,
+      telefono: f.telefono.value, pais: f.pais.value,
       origen: state.screen === "detail" ? state.sel : ""
     };
     var r = S.registrar(datos);
-    if (!r.ok) { openSheet(registroHTML(null, r.errores, datos)); return; }
+    if (!r.ok) { openSheet(registroHTML(null, r.errores, datos), function () { ligarPais("rg"); }); return; }
     closeSheet();
     var pend = accionPendiente;
     accionPendiente = null;
@@ -1391,7 +1427,7 @@
         '</div>' +
       '</form>' +
       '<p class="small msj__quien">Te buscaremos como <strong>' + esc(u.nombre) + '</strong> · ' +
-        esc(u.telefono) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>' +
+        esc(S.telMostrar(u)) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>' +
     '</div>' +
     '<div class="sheet__foot">' +
       '<button class="btn btn--link" data-action="sheet-close">Cancelar</button>' +

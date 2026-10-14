@@ -83,7 +83,7 @@
         (nuevos ? ' <span class="kcard__nuevo">' + nuevos + ' sin leer</span>' : "") +
         (l.ejemplo ? ' <span class="kcard__tag">ejemplo</span>' : "") + '</p>' +
       (l.empresa ? '<p class="kcard__meta">' + esc(l.empresa) + '</p>' : "") +
-      '<p class="kcard__meta">' + esc(l.telefono || "sin teléfono") + '</p>' +
+      '<p class="kcard__meta">' + esc(S.telMostrar(l) || "sin teléfono") + '</p>' +
       (l.presupuesto ? '<p class="kcard__budget">' + esc(dinero(l.presupuesto)) + '</p>' : "") +
       (visita ? '<p class="kcard__cita">' + icon("calendar", 13) +
         'Visita por confirmar · ' + esc(fechaDia(visita.dia)) + '</p>' : "") +
@@ -128,8 +128,8 @@
     var tel = String(l.telefono || "").replace(/\D/g, "");
 
     var directo = '<div class="chat__directo">' +
-      (tel ? '<a class="btn btn--quiet btn--sm" href="tel:+52' + esc(tel) + '">' + icon("phone", 15) + 'Llamar</a>' +
-             '<a class="btn btn--quiet btn--sm" href="https://wa.me/52' + esc(tel) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : "") +
+      (tel ? '<a class="btn btn--quiet btn--sm" href="tel:' + esc(S.telE164(l)) + '">' + icon("phone", 15) + 'Llamar</a>' +
+             '<a class="btn btn--quiet btn--sm" href="https://wa.me/' + esc(S.telWa(l)) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : "") +
       (l.correo ? '<a class="btn btn--quiet btn--sm" href="mailto:' + esc(l.correo) + '">' + icon("mail", 15) + 'Correo</a>' : "") +
     '</div>';
 
@@ -192,7 +192,15 @@
           '<input id="lf-nombre" name="nombre" value="' + esc(l.nombre) + '"></div>' +
         '<div class="pair">' +
           '<div class="field"><label for="lf-tel">Teléfono</label>' +
-            '<input id="lf-tel" name="telefono" inputmode="tel" value="' + esc(l.telefono) + '"></div>' +
+            '<div class="telfield">' +
+              '<select id="lf-pais" name="pais" aria-label="País del teléfono">' +
+                window.Store.PAISES.map(function (p) {
+                  return '<option value="' + p.id + '"' + (p.id === window.Store.paisDe(l.pais).id ? " selected" : "") + '>' +
+                    esc(p.nombre) + " +" + p.lada + "</option>";
+                }).join("") +
+              '</select>' +
+              '<input id="lf-tel" name="telefono" inputmode="tel" value="' + esc(l.telefono) + '">' +
+            '</div></div>' +
           '<div class="field"><label for="lf-etapa">Etapa</label>' +
             '<select id="lf-etapa" name="etapa">' + window.Store.ETAPAS.map(function (e) {
               return '<option value="' + e.id + '"' + (e.id === l.etapa ? " selected" : "") + '>' + esc(e.label) + "</option>";
@@ -558,7 +566,7 @@
         var f = document.getElementById("lead-form");
         var d = leerForm(f);
         S.actualizarLead(f.getAttribute("data-lead"), {
-          nombre: d.nombre, telefono: d.telefono, correo: d.correo, correosExtra: d.correosExtra,
+          nombre: d.nombre, telefono: d.telefono, pais: d.pais, correo: d.correo, correosExtra: d.correosExtra,
           presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
         });
         ui().closeSheet(); ui().toast("Ficha actualizada."); ui().render();
@@ -677,7 +685,7 @@
     if (!f || f.getAttribute("data-lead") !== idl) return;
     var d = leerForm(f);
     window.Store.actualizarLead(idl, {
-      nombre: d.nombre, telefono: d.telefono, correo: d.correo, correosExtra: d.correosExtra,
+      nombre: d.nombre, telefono: d.telefono, pais: d.pais, correo: d.correo, correosExtra: d.correosExtra,
       presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
     });
   }

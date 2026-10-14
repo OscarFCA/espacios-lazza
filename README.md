@@ -30,7 +30,7 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 
 | | Usuario | Administrador |
 |---|---|---|
-| **Entra** | **Crear cuenta** (CTA verde del header): nombre completo, correo y teléfono | **Iniciar sesión**, el mismo botón que usa cualquiera |
+| **Entra** | **Crear cuenta** (CTA verde del header): nombre completo, correo y teléfono con lada | **Iniciar sesión**, el mismo botón que usa cualquiera |
 | **Ve** | Su perfil: oportunidades y guardados | El mismo perfil, con una barra de pestañas extra |
 | **Puede** | Buscar, ver fichas, **guardar**, **compartir**, **escribir al equipo** y **pedir una visita** | Publicar y editar propiedades, **leer y contestar los mensajes**, confirmar visitas, mover interesados en el Kanban, ver quién guardó o compartió qué |
 | **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
@@ -76,7 +76,7 @@ en vez de por etapa, y una fila abre exactamente la misma ficha que una tarjeta.
 Desde cualquier propiedad el cliente puede:
 
 - **Hablar con un asesor** — escribe su pregunta y elige por dónde prefiere que le
-  contesten (llamada, WhatsApp o correo).
+  contesten: llamada, WhatsApp, **videollamada** o correo.
 - **Solicitar una visita** — elige día y uno de cinco bloques de dos horas. El
   calendario no deja elegir días pasados, y la confirmación dice con todas sus letras
   que **todavía no está agendada**: la confirma el equipo.
@@ -98,6 +98,24 @@ Qué pasa del lado del equipo:
 El cliente ve el mismo hilo en **Tus mensajes**, dentro de su perfil, y puede seguir
 contestando desde ahí. Las notas de *Seguimiento* son otra cosa: son internas y el
 cliente no las ve.
+
+### Teléfono con lada
+
+El teléfono se captura como **país + número**, con **México (+52) preseleccionado**
+porque es el mercado. Se guarda el país, no solo la lada, porque Estados Unidos y
+Canadá comparten el +1.
+
+- Cada país trae **cuántos dígitos espera** y la validación usa esa regla: diez para
+  México, nueve para España. El texto de ayuda cambia al cambiar de país.
+- Pegar `+52 55 1234 5678` **no guarda la lada dos veces**: si el número trae su propio
+  código delante, se descarta.
+- Se puede **iniciar sesión con o sin lada**: `5531650560`, `525531650560` y
+  `+52 55 3165 0560` llegan a la misma cuenta.
+- *Llamar* y *WhatsApp* en la ficha del interesado **usan la lada guardada**, no un +52
+  fijo.
+
+La lista de países vive en `PAISES`, dentro de `js/store.js`: son doce y agregar uno es
+agregar un renglón. Nada más depende de ella.
 
 ### Oportunidades con acceso anticipado
 

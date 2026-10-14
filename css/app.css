@@ -1042,3 +1042,8 @@ body.is-admin .footer { display: none; }
 .actlist__tipo--contacto { background: rgba(104,122,88,.14); color: var(--action-primary); }
 .actlist__tipo--visita { background: var(--tag-terreno-bg); color: var(--tag-terreno-fg); }
 .admin-block--primero { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* ---------- Teléfono con lada ---------- */
+.telfield { display: flex; gap: var(--space-xs); align-items: stretch; }
+.telfield select { flex: 0 1 auto; width: auto; max-width: 48%; padding-inline: 12px; }
+.telfield input { flex: 1 1 55%; min-width: 0; }

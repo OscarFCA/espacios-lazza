@@ -67,8 +67,29 @@
   var CANALES = [
     { id: "telefono", label: "Llamada" },
     { id: "whatsapp", label: "WhatsApp" },
+    { id: "videollamada", label: "Videollamada" },
     { id: "correo", label: "Correo" }
   ];
+
+  /* Lada por país. El mercado es la Ciudad de México, así que México va primero
+     y es el predeterminado, pero hay compradores fuera. Se guarda el país y no
+     solo la lada porque el +1 lo comparten Estados Unidos y Canadá.
+     Agregar un país es agregar un renglón aquí: nada más depende de la lista. */
+  var PAISES = [
+    { id: "MX", lada: "52", nombre: "México",          min: 10, max: 10 },
+    { id: "US", lada: "1",  nombre: "Estados Unidos",  min: 10, max: 10 },
+    { id: "CA", lada: "1",  nombre: "Canadá",          min: 10, max: 10 },
+    { id: "ES", lada: "34", nombre: "España",          min: 9,  max: 9  },
+    { id: "CO", lada: "57", nombre: "Colombia",        min: 10, max: 10 },
+    { id: "AR", lada: "54", nombre: "Argentina",       min: 10, max: 11 },
+    { id: "CL", lada: "56", nombre: "Chile",           min: 9,  max: 9  },
+    { id: "PE", lada: "51", nombre: "Perú",            min: 9,  max: 9  },
+    { id: "BR", lada: "55", nombre: "Brasil",          min: 10, max: 11 },
+    { id: "GB", lada: "44", nombre: "Reino Unido",     min: 10, max: 10 },
+    { id: "FR", lada: "33", nombre: "Francia",         min: 9,  max: 9  },
+    { id: "DE", lada: "49", nombre: "Alemania",        min: 10, max: 11 }
+  ];
+  var PAIS_DEF = "MX";
 
   function vacio() {
     return { usuarios: [], sesion: null, admin: false, leads: [], mensajes: [], actividad: [], propiedades: [], seed: false };
@@ -93,6 +114,9 @@
   function migrar(d) {
     asegurarAdmin(d);
     asegurarDemo(d);
+    /* El teléfono no llevaba país. Todo lo que ya existía es de México. */
+    (d.usuarios || []).forEach(function (u) { if (!u.pais) u.pais = PAIS_DEF; });
+    (d.leads || []).forEach(function (l) { if (!l.pais) l.pais = PAIS_DEF; });
     (d.leads || []).forEach(function (l) {
       if (!Array.isArray(l.seguimiento)) {
         l.seguimiento = [];
@@ -115,7 +139,7 @@
     }
     (d.usuarios = d.usuarios || []).push({
       id: uid("usr"), nombre: ADMIN_NOMBRE, correo: ADMIN_IDS[0], telefono: ADMIN_IDS[1],
-      admin: true, alta: hoy()
+      pais: PAIS_DEF, admin: true, alta: hoy()
     });
     return d;
   }
@@ -139,12 +163,13 @@
       }
       return d;
     }
-    var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono, demo: true, alta: hoy() };
+    var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono,
+              pais: PAIS_DEF, demo: true, alta: hoy() };
     (d.usuarios = d.usuarios || []).push(u);
     var idLead = uid("lead");
     (d.leads = d.leads || []).push({
       id: idLead, usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
-      correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
+      pais: u.pais, correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
       origen: DEMO.guardados[0], alta: hoy(), actualizado: hoy(), demo: true
     });
     /* La cuenta de prueba ya trae una conversación abierta: así se ve de los
@@ -226,7 +251,7 @@
           { de: "cliente", tipo: "visita", canal: "whatsapp", dias: 1, enDias: 2, hora: "09-11",
             texto: "Mejor la veo en persona. ¿Puede ser esta semana?" }
         ] },
-      { nombre: "Ricardo Lemus", correo: "rlemus@estudiolemus.com", telefono: "5569014488",
+      { nombre: "Ricardo Lemus", correo: "rlemus@estudiolemus.com", telefono: "4155538217", pais: "US",
         etapa: "negociacion", presupuesto: 9500000, empresa: "Estudio Lemus · Arquitectura",
         propiedad: "escandon-mixto",
         notas: [
@@ -235,12 +260,13 @@
         ] }
     ];
     base.forEach(function (b, i) {
-      var u = { id: uid("usr"), nombre: b.nombre, correo: b.correo, telefono: b.telefono, alta: hoy(), ejemplo: true };
+      var u = { id: uid("usr"), nombre: b.nombre, correo: b.correo, telefono: b.telefono,
+                pais: b.pais || PAIS_DEF, alta: hoy(), ejemplo: true };
       d.usuarios.push(u);
       var idLead = uid("lead");
       d.leads.push({
         id: idLead, usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
-        correosExtra: "", presupuesto: b.presupuesto, empresa: b.empresa,
+        pais: u.pais, correosExtra: "", presupuesto: b.presupuesto, empresa: b.empresa,
         seguimiento: b.notas.map(function (t, k) {
           var f = new Date(Date.now() - (b.notas.length - k) * 86400000 * 2).toISOString();
           return { id: uid("nota"), texto: t, fecha: f };
@@ -283,14 +309,59 @@
   function normCorreo(c) { return String(c || "").trim().toLowerCase(); }
   function normTel(t) { return String(t || "").replace(/\D/g, ""); }
 
+  /* ------------------------------ teléfono ------------------------------ */
+
+  function paisDe(id) {
+    return PAISES.filter(function (p) { return p.id === id; })[0] ||
+           PAISES.filter(function (p) { return p.id === PAIS_DEF; })[0];
+  }
+  /* Acepta un usuario, un lead o un id de país: en todos los casos devuelve
+     el país con el que hay que leer ese teléfono. */
+  function paisDeQuien(x) {
+    return paisDe(x && typeof x === "object" ? x.pais : x);
+  }
+
+  /* Quien pega "+52 55 1234 5678" está escribiendo su número, no uno de doce
+     dígitos. Si el número trae su propia lada delante, se le quita. */
+  function limpiarTel(valor, p) {
+    var t = normTel(valor);
+    if (p.lada && t.length > p.max && t.indexOf(p.lada) === 0) {
+      var sin = t.slice(p.lada.length);
+      if (sin.length >= p.min && sin.length <= p.max) return sin;
+    }
+    return t;
+  }
+
+  function telNacional(x) { return normTel(x && x.telefono); }
+  function telE164(x) { return "+" + paisDeQuien(x).lada + telNacional(x); }
+  function telWa(x) { return paisDeQuien(x).lada + telNacional(x); }
+
+  /* "+52 55 3165 0560": agrupado para que se lea, no para que se copie. */
+  function telMostrar(x) {
+    var t = telNacional(x);
+    if (!t) return "";
+    var p = paisDeQuien(x);
+    var agrupado = t.length === 10 ? t.slice(0, 2) + " " + t.slice(2, 6) + " " + t.slice(6)
+                 : t.replace(/(\d{3})(?=\d)/g, "$1 ");
+    return "+" + p.lada + " " + agrupado;
+  }
+
+  function errorTel(p, tel) {
+    if (tel.length >= p.min && tel.length <= p.max) return "";
+    return p.min === p.max
+      ? "El teléfono de " + p.nombre + " debe tener " + p.min + " dígitos."
+      : "El teléfono de " + p.nombre + " debe tener entre " + p.min + " y " + p.max + " dígitos.";
+  }
+
   function validarRegistro(datos) {
     var err = {};
     if (!String(datos.nombre || "").trim() || String(datos.nombre).trim().split(/\s+/).length < 2)
       err.nombre = "Escribe tu nombre y apellido.";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normCorreo(datos.correo)))
       err.correo = "Revisa el correo: no tiene un formato válido.";
-    if (normTel(datos.telefono).length !== 10)
-      err.telefono = "El teléfono debe tener 10 dígitos.";
+    var p = paisDe(datos.pais);
+    var e = errorTel(p, limpiarTel(datos.telefono, p));
+    if (e) err.telefono = e;
     return err;
   }
 
@@ -303,14 +374,17 @@
     if (dueño && dueño.admin) {
       return { ok: false, errores: { correo: "Ese correo es del equipo. Usa Iniciar sesión." } };
     }
-    var tel = normTel(datos.telefono);
+    var p = paisDe(datos.pais);
+    var tel = limpiarTel(datos.telefono, p);
     var existente = db.usuarios.filter(function (u) { return u.correo === correo; })[0];
 
     if (existente) {
       existente.nombre = String(datos.nombre).trim();
       existente.telefono = tel;
+      existente.pais = p.id;
     } else {
-      existente = { id: uid("usr"), nombre: String(datos.nombre).trim(), correo: correo, telefono: tel, alta: hoy() };
+      existente = { id: uid("usr"), nombre: String(datos.nombre).trim(), correo: correo,
+                    telefono: tel, pais: p.id, alta: hoy() };
       db.usuarios.push(existente);
     }
 
@@ -318,13 +392,14 @@
     if (!lead) {
       db.leads.push({
         id: uid("lead"), usuarioId: existente.id, nombre: existente.nombre,
-        correo: existente.correo, telefono: existente.telefono, correosExtra: "",
+        correo: existente.correo, telefono: existente.telefono, pais: existente.pais, correosExtra: "",
         presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
         origen: datos.origen || "", alta: hoy(), actualizado: hoy()
       });
     } else {
       lead.nombre = existente.nombre;
       lead.telefono = existente.telefono;
+      lead.pais = existente.pais;
     }
 
     db.sesion = existente.id;
@@ -336,7 +411,9 @@
     var correo = normCorreo(identificador);
     var tel = normTel(identificador);
     return db.usuarios.filter(function (u) {
-      return u.correo === correo || (tel.length >= 10 && u.telefono === tel);
+      if (u.correo === correo) return true;
+      if (tel.length < 7 || !u.telefono) return false;
+      return u.telefono === tel || (paisDeQuien(u).lada + u.telefono) === tel;
     })[0] || null;
   }
 
@@ -421,7 +498,8 @@
     if (u) {
       if (campos.nombre) u.nombre = campos.nombre;
       if (campos.correo) u.correo = normCorreo(campos.correo);
-      if (campos.telefono) u.telefono = normTel(campos.telefono);
+      if (campos.pais) u.pais = paisDe(campos.pais).id;
+      if (campos.telefono) u.telefono = limpiarTel(campos.telefono, paisDe(campos.pais || l.pais));
     }
     save();
     return l;
@@ -481,7 +559,7 @@
     }
     l = {
       id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
-      correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
+      pais: u.pais, correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
       origen: origen || "", alta: hoy(), actualizado: hoy()
     };
     db.leads.push(l);
@@ -670,7 +748,8 @@
   }
 
   window.Store = {
-    ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, hoyLocal: hoyLocal,
+    ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF,
+    hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
     enviarMensaje: enviarMensaje, responderMensaje: responderMensaje, validarMensaje: validarMensaje,
     mensajes: mensajes, conversacion: conversacion, conversacionDe: conversacionDe,
     bandeja: bandeja, sinLeer: sinLeer, sinLeerDe: sinLeerDe,
