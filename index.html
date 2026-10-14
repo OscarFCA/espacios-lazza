@@ -85,6 +85,14 @@
 <!-- Bottom nav móvil (§21) -->
 <nav class="bottomnav" id="bottomnav" aria-label="Navegación principal (móvil)"></nav>
 
+<!-- Asistente guiado: puerta rápida a crear cuenta o escribirle a Jaime -->
+<button class="fab" id="fab-chat" hidden aria-haspopup="dialog" aria-expanded="false" aria-controls="chat">
+  <span class="fab__ico" id="fab-ico" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/></svg></span>
+  <span id="fab-txt">¿Te ayudo?</span>
+</button>
+
+<div class="chatbox" id="chat" role="dialog" aria-labelledby="chat-title" hidden></div>
+
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden></div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -92,6 +100,7 @@
 <script src="js/data.js"></script>
 <script src="js/store.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/bot.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -46,7 +46,7 @@ bandera de equipo ve en `#/perfil` una barra con *Mi perfil · Mensajes · Inter
 Propiedades · Actividad*; sin la bandera esa barra no existe, y forzar
 `#/perfil/interesados` por URL no muestra nada del panel.
 
-- **Mensajes**: la bandeja de entrada. Una fila por cliente, ordenada por lo último
+- **Mensajes**: la bandeja de entrada, con lo que llega por la ficha y por el asistente. Una fila por cliente, ordenada por lo último
   que pasó, con filtros *Todas · Sin leer · Visitas por confirmar*.
 - **Interesados**: Kanban de 6 etapas (Nuevo · Contactado · Visita agendada ·
   Negociación · Cerrado · Descartado).
@@ -98,6 +98,33 @@ Qué pasa del lado del equipo:
 El cliente ve el mismo hilo en **Tus mensajes**, dentro de su perfil, y puede seguir
 contestando desde ahí. Las notas de *Seguimiento* son otra cosa: son internas y el
 cliente no las ve.
+
+### Asistente guiado (el botón de la esquina)
+
+Un **guion**, no un modelo de lenguaje. Vive en un botón fijo abajo a la derecha —como
+cualquier widget de chat— y abre una **caja en la esquina**: no oscurece el sitio ni
+atrapa el foco, así que se puede seguir navegando con la conversación abierta. El mismo
+botón la cierra.
+
+Cada paso ofrece **respuestas establecidas**; solo se escribe cuando hace falta un dato
+que nadie puede adivinar (nombre, correo, teléfono, el mensaje). Dos caminos:
+
+1. **Crear mi cuenta** — nombre, correo y teléfono con lada, uno por uno, validando en
+   la propia conversación. Al terminar la sesión queda abierta y la cabecera se
+   actualiza sin cerrar el asistente.
+2. **Hablar con Jaime** — sin cuenta la pide primero, explicando por qué, y al terminar
+   **retoma donde se quedó**. Si hay una propiedad en pantalla, la ofrece como tema sin
+   preguntar cuál. También agenda visitas, con el mismo día + bloque de dos horas.
+
+Todo lo que manda sale por `Store.enviarMensaje`: **cae en la bandeja y en el Kanban**
+igual que si se hubiera escrito desde la ficha. El asistente no guarda nada propio y la
+conversación con el bot no se persiste: es un camino, no un historial.
+
+El guion vive en `PASOS`, dentro de `js/bot.js`. Cada paso declara qué dice, qué
+opciones da (`opciones`) o qué dato pide (`entrada`), y a qué paso salta. Agregar una
+pregunta es agregar una entrada a ese objeto.
+
+> Con la cuenta del equipo el botón no aparece: Jaime no se escribe a sí mismo.
 
 ### Teléfono con lada
 

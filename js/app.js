@@ -891,6 +891,8 @@
       b.setAttribute("aria-label", "Tu perfil: " + u.nombre);
     });
 
+    if (window.Bot) window.Bot.sincronizar();
+
     var dot = document.getElementById("avatar-dot");
     if (dot) dot.hidden = S.esAdmin() ? !S.sinLeer() : !(u && S.oportunidades().length);
 
@@ -1817,11 +1819,13 @@
   window.LegatoUI = {
     esc: esc, icon: icon, money: money, toast: toast, render: render,
     go: function (screen, patch) { go(screen, patch); },
-    openSheet: openSheet, closeSheet: closeSheet
+    openSheet: openSheet, closeSheet: closeSheet,
+    contexto: function () { return { screen: state.screen, sel: state.sel }; }
   };
 
   // Arranque
   if (!location.hash) history.replaceState(null, "", "#/");
   window.Admin.bind();
+  window.Bot.montar();
   route(true);
 })();
