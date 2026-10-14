@@ -1476,6 +1476,14 @@
           'Te respondemos por ' + esc(canalLabel(m.canal).toLowerCase()) +
           ' en menos de 24 horas hábiles. La conversación queda guardada en tu perfil.</p>') +
     '</div>' +
+    (S.enlaceWaEquipo(m)
+      ? '<div class="sheet__extra">' +
+          '<a class="btn btn--line btn--block" href="' + esc(S.enlaceWaEquipo(m)) + '" target="_blank" rel="noopener noreferrer">' +
+            icon("chat", 16) + 'Avisarles por WhatsApp ahora' +
+            '<span class="sr-only"> (se abre WhatsApp en otra pestaña)</span></a>' +
+          '<p class="small">Opcional. Abre tu WhatsApp con el resumen ya escrito.</p>' +
+        '</div>'
+      : "") +
     '<div class="sheet__foot">' +
       '<button class="btn btn--link" data-action="sheet-close">Seguir viendo</button>' +
       '<button class="btn btn--primary" data-action="ver-mensajes">Ver la conversación</button>' +
@@ -1840,7 +1848,7 @@
   window.LegatoUI = {
     esc: esc, icon: icon, money: money, toast: toast, render: render,
     go: function (screen, patch) { go(screen, patch); },
-    openSheet: openSheet, closeSheet: closeSheet,
+    openSheet: openSheet, closeSheet: closeSheet, hiloHTML: burbujasHTML,
     contexto: function () { return { screen: state.screen, sel: state.sel }; }
   };
 

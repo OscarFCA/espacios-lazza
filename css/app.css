@@ -1157,3 +1157,15 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
   .puntos i { animation: none; opacity: .6; }
 }
 .bot__espera { min-height: var(--target); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.bot__op--wa { display: inline-flex; align-items: center; justify-content: flex-start; gap: var(--space-xs); text-decoration: none; background: var(--action-primary); color: var(--text-inverse); }
+.bot__op--wa:hover { background: var(--action-primary-hover); color: var(--text-inverse); }
+.sheet__extra { padding: 0 var(--gutter) var(--space-sm); display: grid; gap: 6px; }
+.sheet__extra .btn { text-decoration: none; gap: var(--space-xs); }
+.sheet__extra .small { color: var(--text-secondary); text-align: center; }
+.bot__nota { font-size: var(--fs-small); color: var(--text-secondary); line-height: 1.5; }
+.bot__hilo .chat { margin-top: 0; }
+.bot__hilo .chat__burbuja { max-width: 88%; font-size: var(--fs-small); }
+.bot__hilo .chat__msg--otro .chat__burbuja { background: var(--bg-surface); border: 1px solid var(--border-default); }
+.bot__sobre { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.bot__accion { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
+.bot__aviso { display: inline-flex; align-items: center; gap: 5px; justify-self: center; padding: 6px 2px; min-height: 32px; font-size: 12px; font-weight: 600; color: var(--action-primary); text-decoration: underline; text-underline-offset: 3px; }

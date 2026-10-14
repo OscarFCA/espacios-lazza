@@ -138,9 +138,34 @@ aparece con su número cuando es distinto.
 El guion **nunca nombra a Jaime**: quien llega no sabe quién es. Habla de *un asesor*;
 el nombre es el de la cuenta del equipo, no el de cara al cliente.
 
+**El widget también es la conversación, no solo el camino hacia ella.** Quien ya tiene
+hilo abierto lo ve de primera opción —*Continuar mi conversación*— y escribe libremente
+ahí mismo: es el mismo hilo que vive en su perfil y en la bandeja del equipo. Desde el
+guion se llega con *Seguir escribiendo aquí*, y *Ver opciones* regresa al menú.
+
+En modo libre **no hay tres puntos ni respuesta automática**: del otro lado todavía no
+hay nadie, y fingirlo sería mentir. El mensaje aparece en el hilo y ya. Enter hace salto
+de línea, porque ahí sí se escriben párrafos.
+
 Todo lo que manda sale por `Store.enviarMensaje`: **cae en la bandeja y en el Kanban**
-igual que si se hubiera escrito desde la ficha. El asistente no guarda nada propio y la
-conversación con el bot no se persiste: es un camino, no un historial.
+igual que si se hubiera escrito desde la ficha. El guion en sí no se persiste —es un
+camino, no un historial—; los mensajes sí.
+
+### Avisarle al equipo al momento
+
+Un sitio estático **no puede mandar un WhatsApp por su cuenta**: eso exige un token y un
+servidor. Lo que sí puede es abrirle a la persona **su propio WhatsApp con el resumen ya
+escrito** hacia el número del equipo, para que Lazza se entere sin esperar a que alguien
+abra la bandeja.
+
+Aparece al terminar de enviar —en el panel de la ficha y en el asistente— y bajo el
+campo del chat libre. El resumen se basta solo: quién escribe, qué propiedad y qué
+preguntó; si es una visita, el día y el horario. El número sale de la cuenta del equipo;
+para cambiarlo, `WA_EQUIPO` en `js/store.js`.
+
+> Es un atajo honesto, no una notificación automática: **lo manda el cliente**, con un
+> toque suyo. El aviso automático necesita backend —una función que escuche los
+> `mensajes` nuevos y llame a la API de WhatsApp o mande un correo.
 
 El guion vive en `PASOS`, dentro de `js/bot.js`. Cada paso declara qué dice, qué
 opciones da (`opciones`) o qué dato pide (`entrada`), y a qué paso salta. Agregar una

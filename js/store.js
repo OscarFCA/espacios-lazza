@@ -691,6 +691,54 @@
     return guardarWhatsApp(u.telefono, u.pais);
   }
 
+  /* ------------------- aviso directo al equipo ------------------- */
+  /* Un sitio estático no puede mandar un WhatsApp por su cuenta: eso exige un
+     token y un servidor. Lo que sí puede es abrirle al cliente su propio
+     WhatsApp con el resumen escrito, para que el equipo se entere al momento
+     en lugar de esperar a que alguien abra la bandeja.
+     El número sale de la cuenta del equipo; si el WhatsApp de Lazza llega a
+     ser otro, se cambia WA_EQUIPO y ya. */
+  var WA_EQUIPO = "";     // vacío = usa el de la cuenta del equipo
+
+  function whatsappEquipo() {
+    if (WA_EQUIPO) return normTel(WA_EQUIPO);
+    var a = db.usuarios.filter(function (u) { return u.admin; })[0];
+    return a ? telWa(a) : "";
+  }
+
+  function diaLargo(iso) {
+    var p = String(iso).split("-");
+    try {
+      return new Date(p[0], Number(p[1]) - 1, p[2])
+        .toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+    } catch (e) { return iso; }
+  }
+
+  /* El resumen tiene que bastarse solo: el equipo lo lee en su teléfono, sin
+     la plataforma enfrente. */
+  function resumenWa(m) {
+    var u = sesion();
+    var quien = u ? u.nombre : (m && m.nombre) || "";
+    var p = catalogoCompleto().filter(function (x) { return x.slug === m.slug; })[0];
+    var donde = p ? p.title + " (" + p.zona + ")" : "";
+    var texto = String(m.texto || "").trim().slice(0, 400);
+
+    if (m.tipo === "visita") {
+      var h = HORARIOS.filter(function (x) { return x.id === m.hora; })[0];
+      return "Hola, soy " + quien + ". Acabo de pedir una visita por la plataforma" +
+        (donde ? " a " + donde : "") + " el " + diaLargo(m.dia) +
+        (h ? ", de " + h.label : "") + "." + (texto ? " " + texto : "");
+    }
+    return "Hola, soy " + quien + ". Acabo de escribirles por la plataforma" +
+      (donde ? " sobre " + donde : "") + "." + (texto ? " " + texto : "");
+  }
+
+  function enlaceWaEquipo(m) {
+    var n = whatsappEquipo();
+    if (!n) return "";
+    return "https://wa.me/" + n + "?text=" + encodeURIComponent(resumenWa(m));
+  }
+
   function mensajes() { return db.mensajes.slice(); }
   /* La conversación se lee del más viejo al más nuevo, como cualquier chat.
      Ordena por fecha y no por posición: el orden del arreglo no es un contrato. */
@@ -804,6 +852,7 @@
     ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF,
     hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
     waMostrar: waMostrar, waPropio: waPropio, tieneWhatsApp: tieneWhatsApp,
+    enlaceWaEquipo: enlaceWaEquipo, whatsappEquipo: whatsappEquipo,
     guardarWhatsApp: guardarWhatsApp, mismoWhatsApp: mismoWhatsApp,
     enviarMensaje: enviarMensaje, responderMensaje: responderMensaje, validarMensaje: validarMensaje,
     mensajes: mensajes, conversacion: conversacion, conversacionDe: conversacionDe,

@@ -31,6 +31,9 @@
   var datos = {};       // lo que se va recogiendo
   var errorActual = "";
   var abierto = false;
+  /* "guion" sigue el árbol de preguntas; "chat" es la conversación de verdad
+     con el equipo, la misma que vive en el perfil. */
+  var modo = "guion";
 
   function diceBot(t) { (Array.isArray(t) ? t : [t]).forEach(function (x) { hilo.push({ de: "bot", texto: x }); }); }
   function diceYo(t) { hilo.push({ de: "yo", texto: t }); }
@@ -55,15 +58,23 @@
       dice: function () {
         var n = nombrePila();
         var p = propiedadEnPantalla();
+        var u = S().sesion();
+        var hilo = u ? S().conversacionDe(u.id) : [];
+        if (hilo.length && hilo[hilo.length - 1].de === "equipo") {
+          return ["Hola, " + n + ". Tienes una respuesta del equipo esperándote."];
+        }
         return n
           ? ["Hola, " + n + ". ¿En qué te ayudo?"]
           : ["Hola. Soy el asistente de Legato Capital.",
              p ? "Veo que estás en " + p.title + ". ¿Qué te gustaría hacer?" : "¿Qué te gustaría hacer?"];
       },
       opciones: function () {
+        var u = S().sesion();
+        var hilo = u ? S().conversacionDe(u.id).length : 0;
         var o = [];
-        if (!S().sesion()) o.push({ txt: "Crear mi cuenta", va: "alta_nombre" });
-        o.push({ txt: "Hablar con un asesor", va: "asesor" });
+        if (hilo) o.push({ txt: "Continuar mi conversación", va: "chat" });
+        if (!u) o.push({ txt: "Crear mi cuenta", va: "alta_nombre" });
+        if (!hilo) o.push({ txt: "Hablar con un asesor", va: "asesor" });
         o.push({ txt: "Agendar una visita", va: "visita" });
         o.push({ txt: "Solo estoy viendo", va: "mirar" });
         return o;
@@ -147,7 +158,7 @@
       antes: function () {
         if (!S().sesion()) { datos.volverA = "asesor"; return "alta_nombre"; }
         /* Sin WhatsApp no hay por dónde responder: se pide una vez y queda. */
-        if (!S().tieneWhatsApp()) return "wa_confirma";
+        if (!S().tieneWhatsApp()) { datos.trasWa = "asesor"; return "wa_confirma"; }
         return null;
       },
       dice: ["Te atiende un asesor patrimonial de Legato. ¿De qué quieres hablar?"],
@@ -179,6 +190,18 @@
       }
     },
 
+    /* ---------- conversación libre, dentro del mismo widget ---------- */
+
+    chat: {
+      antes: function () {
+        if (!S().sesion()) { datos.volverA = "chat"; return "alta_nombre"; }
+        if (!S().tieneWhatsApp()) { datos.trasWa = "chat"; return "wa_confirma"; }
+        modo = "chat";
+        return null;
+      },
+      dice: []
+    },
+
     /* ---------- el WhatsApp del asesor ---------- */
 
     wa_confirma: {
@@ -197,7 +220,7 @@
        viejo, mal capturado por el equipo— pide uno en vez de dar vueltas. */
     wa_mismo: {
       antes: function () {
-        return S().mismoWhatsApp().ok ? "asesor" : "wa_otro";
+        return S().mismoWhatsApp().ok ? (datos.trasWa || "asesor") : "wa_otro";
       },
       dice: []
     },
@@ -209,7 +232,7 @@
         var r = S().guardarWhatsApp(v, extra);
         if (!r.ok) return { error: r.error };
         ui().render();
-        return { va: "asesor", eco: r.muestra };
+        return { va: datos.trasWa || "asesor", eco: r.muestra };
       }
     },
 
@@ -289,6 +312,7 @@
           return "alta_nombre";
         }
         datos.enviado = !!r.ok;
+        datos.msj = r.mensaje || null;
         datos.falla = r.ok ? "" : (r.errores ? Object.keys(r.errores).map(function (k) { return r.errores[k]; })[0] : "");
         ui().render();
         return null;
@@ -305,11 +329,17 @@
       },
       opciones: function () {
         if (!datos.enviado) return [{ txt: "Intentar otra vez", va: "canal" }, { txt: "Mejor después", va: "despedida" }];
-        return [
-          { txt: "Ver la conversación", accion: "perfil" },
+        var o = [];
+        /* Atajo honesto mientras no haya servidor: el aviso lo manda el propio
+           cliente desde su WhatsApp, y así el equipo se entera al momento. */
+        var url = S().enlaceWaEquipo(datos.msj || {});
+        if (url) o.push({ txt: "Avisarles por WhatsApp ahora", enlace: url });
+        return o.concat([
+          { txt: "Seguir escribiendo aquí", va: "chat" },
+          { txt: "Ver la conversación completa", accion: "perfil" },
           { txt: "Seguir viendo propiedades", accion: "resultados" },
           { txt: "Gracias, eso era todo", va: "despedida" }
-        ];
+        ]);
       }
     },
 
@@ -365,6 +395,31 @@
     if (op.hace) op.hace();
     if (op.accion) { salir(op.accion, op.patch); return; }
     pensar(op.va);
+  }
+
+  /* En modo libre no hay guion que esperar: el mensaje sale y aparece. Fingir
+     que alguien escribe del otro lado sería mentir —ahí no hay nadie todavía. */
+  function enviarLibre() {
+    var ta = document.getElementById("bot-chat");
+    var txt = (ta && ta.value || "").trim();
+    if (!txt) { if (ta) ta.focus(); return; }
+    var p = propiedadEnPantalla();
+    var r = S().enviarMensaje({
+      tipo: "contacto", slug: p ? p.slug : "", texto: txt,
+      canal: datos.canal || "whatsapp"
+    });
+    if (!r.ok) {
+      if (r.motivo === "sin-sesion") { modo = "guion"; datos.volverA = "chat"; pensar("alta_nombre"); return; }
+      errorActual = (r.errores && r.errores.texto) || "No se pudo enviar. Inténtalo otra vez.";
+      pintar();
+      return;
+    }
+    errorActual = "";
+    datos.msj = r.mensaje;
+    ui().render();
+    pintar();
+    /* Sin aviso flotante: la burbuja apareciendo en el hilo ya dice que salió,
+       y el aviso tapaba justo los botones de abajo. */
   }
 
   /* Muestra los tres puntos, espera y recién entonces contesta. */
@@ -452,8 +507,43 @@
       ' placeholder="' + esc(e.ph || "") + '">';
   }
 
+  /* En modo libre el cuerpo es el hilo real del Store, no el guion. */
+  function hiloRealHTML() {
+    var u = S().sesion();
+    var hilo = u ? S().conversacionDe(u.id) : [];
+    if (!hilo.length) {
+      return '<p class="bot__nota">Escribe lo que necesites. Un asesor te responde en menos de 24 horas hábiles.</p>';
+    }
+    return '<div class="bot__hilo">' + ui().hiloHTML(hilo) + '</div>';
+  }
+
+  function composerHTML() {
+    var p = propiedadEnPantalla();
+    var u = S().sesion();
+    var mios = (u ? S().conversacionDe(u.id) : []).filter(function (m) { return m.de === "cliente"; });
+    /* El atajo de avisar al equipo también vive aquí: si no, quien ya tenía
+       conversación abierta se quedaba sin él. */
+    var url = mios.length ? S().enlaceWaEquipo(mios[mios.length - 1]) : "";
+    return '<div class="bot__campo">' +
+      (errorActual ? '<p class="field__error">' + icon("alert", 16) + esc(errorActual) + '</p>' : "") +
+      (p ? '<p class="bot__sobre">' + icon("pin", 13) + 'Sobre ' + esc(p.title) + '</p>' : "") +
+      '<label class="sr-only" for="bot-chat">Escribir al equipo</label>' +
+      '<textarea id="bot-chat" rows="2" placeholder="Escribe tu mensaje…"></textarea>' +
+      '<div class="bot__accion">' +
+        '<button class="btn btn--link btn--sm" data-bot="menu">Ver opciones</button>' +
+        '<button class="btn btn--primary btn--sm" data-bot="chat-enviar">Enviar</button>' +
+      '</div>' +
+      (url
+        ? '<a class="bot__aviso" data-bot="enlace" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">' +
+            icon("chat", 14) + 'Avisarles por WhatsApp' +
+            '<span class="sr-only"> (se abre WhatsApp en otra pestaña)</span></a>'
+        : "") +
+    '</div>';
+  }
+
   function pieHTML() {
     if (pensando) return '<p class="bot__espera" aria-hidden="true">…</p>';
+    if (modo === "chat") return composerHTML();
     var def = PASOS[paso];
     if (def.entrada) {
       return '<div class="bot__campo">' +
@@ -464,6 +554,11 @@
     }
     var ops = valor(def.opciones) || [];
     return '<div class="bot__ops">' + ops.map(function (o, i) {
+      if (o.enlace) {
+        return '<a class="bot__op bot__op--wa" data-bot="enlace" href="' + esc(o.enlace) + '" ' +
+          'target="_blank" rel="noopener noreferrer">' + icon("chat", 16) + esc(o.txt) +
+          '<span class="sr-only"> (se abre WhatsApp en otra pestaña)</span></a>';
+      }
       return '<button class="bot__op" data-bot="op" data-i="' + i + '">' + esc(o.txt) + '</button>';
     }).join("") + '</div>';
   }
@@ -483,10 +578,15 @@
     var cuerpo = caja.querySelector(".bot__body");
     var pie = caja.querySelector(".bot__foot");
     if (!cuerpo || !pie) return;
-    cuerpo.innerHTML = burbujasHTML();
+    cuerpo.innerHTML = (modo === "chat" && !pensando) ? hiloRealHTML() : burbujasHTML();
     pie.innerHTML = pieHTML();
     cuerpo.scrollTop = cuerpo.scrollHeight;
     if (pensando) return;
+    if (modo === "chat") {
+      var ta = document.getElementById("bot-chat");
+      if (ta) ta.focus({ preventScroll: true });
+      return;
+    }
     var def = PASOS[paso];
     var foco = def.entrada ? document.getElementById(def.entrada.id) : pie.querySelector(".bot__op");
     if (foco) foco.focus({ preventScroll: true });
@@ -501,6 +601,7 @@
     hilo = [];
     datos = {};
     paso = "inicio";
+    modo = "guion";
     abierto = true;
     caja.innerHTML = cabezaHTML() + '<div class="bot__body"></div><div class="bot__foot"></div>';
     caja.hidden = false;
@@ -553,10 +654,13 @@
     caja.addEventListener("click", function (e) {
       var t = e.target.closest("[data-bot]");
       if (!t) return;
-      e.preventDefault();
       var que = t.getAttribute("data-bot");
+      if (que === "enlace") return;      // es un enlace de verdad: que lo abra el navegador
+      e.preventDefault();
       if (que === "op") elegir(Number(t.getAttribute("data-i")));
       else if (que === "cerrar") cerrar();
+      else if (que === "chat-enviar") enviarLibre();
+      else if (que === "menu") { modo = "guion"; hilo = []; pensar("inicio"); }
       else responder();
     });
 
@@ -564,7 +668,7 @@
       if (e.key === "Escape") { e.stopPropagation(); cerrar(); return; }
       /* Enter manda la respuesta, salvo en el área de texto larga. */
       if (e.key !== "Enter" || e.shiftKey || e.target.tagName === "TEXTAREA") return;
-      if (!PASOS[paso].entrada) return;
+      if (modo === "chat" || !PASOS[paso].entrada) return;
       e.preventDefault();
       responder();
     });
