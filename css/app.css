@@ -1138,3 +1138,22 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
 }
 .bot__campo .telfield select { min-height: var(--target); }
 .perfil__vacio { margin-top: var(--space-md); font-size: var(--fs-small); color: var(--text-secondary); max-width: 54ch; }
+
+/* Los tres puntos mientras el asistente "escribe". */
+.chat__burbuja--puntos { padding: 14px var(--space-md); }
+.puntos { display: inline-flex; gap: 4px; align-items: center; }
+.puntos i {
+  width: 6px; height: 6px; border-radius: var(--radius-pill);
+  background: var(--color-warm-gray); animation: latido 1.2s infinite ease-in-out;
+}
+.puntos i:nth-child(2) { animation-delay: .18s; }
+.puntos i:nth-child(3) { animation-delay: .36s; }
+@keyframes latido {
+  0%, 60%, 100% { opacity: .35; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+/* Sin movimiento: los puntos siguen ahí, solo dejan de brincar. */
+@media (prefers-reduced-motion: reduce) {
+  .puntos i { animation: none; opacity: .6; }
+}
+.bot__espera { min-height: var(--target); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }

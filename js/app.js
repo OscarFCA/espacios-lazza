@@ -1195,8 +1195,8 @@
   /* Cambiar de país cambia cuántos dígitos se esperan: decirlo en el momento
      evita que el error aparezca hasta después de enviar. */
   function ligarPais(pre) {
-    var sel = document.getElementById(pre + "-pais");
-    var inp = document.getElementById(pre + "-tel");
+    var sel = document.getElementById(pre === "mj-wa" ? "mj-wapais" : pre + "-pais");
+    var inp = document.getElementById(pre === "mj-wa" ? "mj-wa" : pre + "-tel");
     if (!sel || !inp) return;
     sel.addEventListener("change", function () {
       inp.placeholder = S.paisDe(sel.value).min + " dígitos";
@@ -1429,6 +1429,20 @@
             }).join("") +
           '</select>' +
         '</div>' +
+        /* Abrir conversación exige un WhatsApp. Se pide una sola vez: quien ya
+           lo dio —aquí o en el asistente— no lo vuelve a ver. */
+        (S.tieneWhatsApp() ? "" :
+          '<div class="field' + (errores.whatsapp ? " field--error" : "") + '">' +
+            '<label for="mj-wa">Tu WhatsApp</label>' +
+            '<div class="telfield">' +
+              '<select id="mj-wapais" name="paisWa" aria-label="País del WhatsApp">' + paisOptions(v.paisWa || u.pais) + '</select>' +
+              '<input id="mj-wa" name="whatsapp" type="tel" inputmode="tel" ' +
+                'placeholder="' + S.paisDe(v.paisWa || u.pais).min + ' dígitos" value="' + esc(v.whatsapp || u.telefono || "") + '"' +
+                (errores.whatsapp ? ' aria-invalid="true" aria-describedby="mj-wa-e"' : "") + '>' +
+            '</div>' +
+            campoError("mj-wa", errores.whatsapp) +
+            '<p class="small" style="color:var(--text-secondary)">Es por donde te responde el asesor.</p>' +
+          '</div>') +
       '</form>' +
       '<p class="small msj__quien">Te buscaremos como <strong>' + esc(u.nombre) + '</strong> · ' +
         esc(S.telMostrar(u)) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>' +
@@ -1480,10 +1494,10 @@
       pedirRegistro(tipo === "visita"
         ? "Crea tu cuenta para agendar la visita: necesitamos cómo confirmártela."
         : "Crea tu cuenta para escribirle al equipo: necesitamos cómo contestarte.",
-        function () { openSheet(mensajeHTML()); });
+        function () { openSheet(mensajeHTML(), function () { ligarPais("mj-wa"); }); });
       return;
     }
-    openSheet(mensajeHTML());
+    openSheet(mensajeHTML(), function () { ligarPais("mj-wa"); });
   }
 
   function enviarMsj() {
@@ -1492,10 +1506,15 @@
     var datos = {
       tipo: msj.tipo, slug: msj.slug,
       texto: f.texto.value, canal: f.canal.value,
-      dia: f.dia ? f.dia.value : "", hora: f.hora ? f.hora.value : ""
+      dia: f.dia ? f.dia.value : "", hora: f.hora ? f.hora.value : "",
+      whatsapp: f.whatsapp ? f.whatsapp.value : "", paisWa: f.paisWa ? f.paisWa.value : ""
     };
+    if (f.whatsapp) {
+      var w = S.guardarWhatsApp(datos.whatsapp, datos.paisWa);
+      if (!w.ok) { openSheet(mensajeHTML({ whatsapp: w.error }, datos), function () { ligarPais("mj-wa"); }); return; }
+    }
     var r = S.enviarMensaje(datos);
-    if (!r.ok) { openSheet(mensajeHTML(r.errores, datos)); return; }
+    if (!r.ok) { openSheet(mensajeHTML(r.errores, datos), function () { ligarPais("mj-wa"); }); return; }
     openSheet(mensajeOkHTML(r.mensaje));
     render();
   }

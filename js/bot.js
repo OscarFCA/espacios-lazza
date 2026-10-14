@@ -20,7 +20,12 @@
   function icon(n, s) { return ui().icon(n, s); }
   function S() { return window.Store; }
 
-  var caja = null, tCerrar = null;
+  /* El asistente se toma dos segundos antes de cada respuesta. No es adorno:
+     una respuesta instantánea delata que no hay nadie del otro lado, y además
+     da tiempo a leer lo que uno acaba de contestar. */
+  var DEMORA = 2000;
+  var caja = null, tCerrar = null, tPensar = null;
+  var pensando = false;
   var hilo = [];        // lo dicho en esta conversación (no se guarda)
   var paso = "inicio";
   var datos = {};       // lo que se va recogiendo
@@ -70,7 +75,7 @@
     alta_nombre: {
       dice: function () {
         return datos.volverA === "asesor"
-          ? ["Para que un asesor te conteste necesito saber cómo localizarte. Son tres datos.",
+          ? ["Para que un asesor te escriba por WhatsApp necesito tres datos.",
              "¿Cómo te llamas? Nombre y apellido."]
           : datos.volverA === "visita"
             ? ["Para apartar la visita necesito tus datos. Son tres.",
@@ -99,7 +104,12 @@
     },
 
     alta_tel: {
-      dice: ["Y tu teléfono. Si llamas desde fuera de México, cambia el país."],
+      dice: function () {
+        return datos.volverA === "asesor"
+          ? ["Y tu WhatsApp: es por donde te contesta el asesor.",
+             "Si escribes desde fuera de México, cambia el país."]
+          : ["Y tu teléfono. Si llamas desde fuera de México, cambia el país."];
+      },
       entrada: { id: "bot-tel", tipo: "tel", boton: "Crear mi cuenta" },
       recibe: function (v, extra) {
         var r = S().registrar({
@@ -111,6 +121,9 @@
           return { error: r.errores.telefono || r.errores.correo || r.errores.nombre || "Algo no cuadró. Inténtalo otra vez." };
         }
         datos.pais = extra;
+        /* Si llegó por el asesor, el número que acaba de dar es su WhatsApp:
+           no tiene sentido pedírselo otra vez en el paso siguiente. */
+        if (datos.volverA === "asesor") S().mismoWhatsApp();
         ui().render();
         return { va: datos.volverA || "alta_ok", eco: S().telMostrar(r.usuario) };
       }
@@ -133,6 +146,8 @@
     asesor: {
       antes: function () {
         if (!S().sesion()) { datos.volverA = "asesor"; return "alta_nombre"; }
+        /* Sin WhatsApp no hay por dónde responder: se pide una vez y queda. */
+        if (!S().tieneWhatsApp()) return "wa_confirma";
         return null;
       },
       dice: ["Te atiende un asesor patrimonial de Legato. ¿De qué quieres hablar?"],
@@ -161,6 +176,40 @@
         if (t.length < 4) return { error: "Escríbeme un poco más y se lo paso completo." };
         datos.texto = t;
         return { va: "canal", eco: t };
+      }
+    },
+
+    /* ---------- el WhatsApp del asesor ---------- */
+
+    wa_confirma: {
+      dice: function () {
+        var u = S().sesion();
+        return ["El asesor te responde por WhatsApp.",
+                "¿Te escribimos al " + S().telMostrar(u) + "?"];
+      },
+      opciones: [
+        { txt: "Sí, ese mismo", va: "wa_mismo" },
+        { txt: "Mi WhatsApp es otro número", va: "wa_otro" }
+      ]
+    },
+
+    /* Paso puente: si copiar el teléfono no pasa la validación —un número
+       viejo, mal capturado por el equipo— pide uno en vez de dar vueltas. */
+    wa_mismo: {
+      antes: function () {
+        return S().mismoWhatsApp().ok ? "asesor" : "wa_otro";
+      },
+      dice: []
+    },
+
+    wa_otro: {
+      dice: ["¿A qué número con WhatsApp te escribimos?"],
+      entrada: { id: "bot-wa", tipo: "tel", boton: "Guardar" },
+      recibe: function (v, extra) {
+        var r = S().guardarWhatsApp(v, extra);
+        if (!r.ok) return { error: r.error };
+        ui().render();
+        return { va: "asesor", eco: r.muestra };
       }
     },
 
@@ -307,17 +356,31 @@
   }
 
   function elegir(i) {
+    if (pensando) return;                 // un doble clic no debe adelantar el guion
     var def = PASOS[paso];
     var op = valor(def.opciones)[i];
     if (!op) return;
     diceYo(op.txt);
     if (op.pone) Object.keys(op.pone).forEach(function (k) { datos[k] = op.pone[k]; });
+    if (op.hace) op.hace();
     if (op.accion) { salir(op.accion, op.patch); return; }
-    entrar(op.va);
+    pensar(op.va);
+  }
+
+  /* Muestra los tres puntos, espera y recién entonces contesta. */
+  function pensar(id) {
+    pensando = true;
     pintar();
+    clearTimeout(tPensar);
+    tPensar = setTimeout(function () {
+      pensando = false;
+      entrar(id);
+      pintar();
+    }, DEMORA);
   }
 
   function responder() {
+    if (pensando) return;
     var def = PASOS[paso];
     var campo = document.getElementById(def.entrada.id);
     if (!campo) return;
@@ -333,8 +396,7 @@
     var r = def.recibe(v, extra);
     if (r.error) { errorActual = r.error; pintar(); return; }
     diceYo(r.eco);
-    entrar(r.va);
-    pintar();
+    pensar(r.va);
   }
 
   /* Las salidas llevan a una pantalla del sitio y cierran el asistente: el
@@ -355,7 +417,16 @@
       return '<li class="chat__msg chat__msg--' + (m.de === "yo" ? "propio" : "otro") + '">' +
         '<div class="chat__burbuja"><p>' + esc(m.texto) + '</p></div>' +
       '</li>';
-    }).join("") + '</ol>';
+    }).join("") +
+    (pensando
+      ? '<li class="chat__msg chat__msg--otro">' +
+          '<div class="chat__burbuja chat__burbuja--puntos">' +
+            '<span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span>' +
+            '<span class="sr-only">Escribiendo…</span>' +
+          '</div>' +
+        '</li>'
+      : "") +
+    '</ol>';
   }
 
   function entradaHTML(e) {
@@ -382,6 +453,7 @@
   }
 
   function pieHTML() {
+    if (pensando) return '<p class="bot__espera" aria-hidden="true">…</p>';
     var def = PASOS[paso];
     if (def.entrada) {
       return '<div class="bot__campo">' +
@@ -414,6 +486,7 @@
     cuerpo.innerHTML = burbujasHTML();
     pie.innerHTML = pieHTML();
     cuerpo.scrollTop = cuerpo.scrollHeight;
+    if (pensando) return;
     var def = PASOS[paso];
     var foco = def.entrada ? document.getElementById(def.entrada.id) : pie.querySelector(".bot__op");
     if (foco) foco.focus({ preventScroll: true });
@@ -427,18 +500,20 @@
     clearTimeout(tCerrar);
     hilo = [];
     datos = {};
+    paso = "inicio";
     abierto = true;
-    entrar("inicio");
     caja.innerHTML = cabezaHTML() + '<div class="bot__body"></div><div class="bot__foot"></div>';
     caja.hidden = false;
     requestAnimationFrame(function () { caja.classList.add("is-open"); });
-    pintar();
+    pensar("inicio");          // también el saludo se hace esperar
     marcarBoton();
   }
 
   function cerrar(sinFoco) {
     if (!abierto) return;
     abierto = false;
+    pensando = false;
+    clearTimeout(tPensar);
     caja.classList.remove("is-open");
     clearTimeout(tCerrar);
     tCerrar = setTimeout(function () { caja.hidden = true; }, 240);

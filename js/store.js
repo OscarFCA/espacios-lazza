@@ -76,18 +76,18 @@
      solo la lada porque el +1 lo comparten Estados Unidos y Canadá.
      Agregar un país es agregar un renglón aquí: nada más depende de la lista. */
   var PAISES = [
-    { id: "MX", lada: "52", nombre: "México",          min: 10, max: 10 },
-    { id: "US", lada: "1",  nombre: "Estados Unidos",  min: 10, max: 10 },
-    { id: "CA", lada: "1",  nombre: "Canadá",          min: 10, max: 10 },
-    { id: "ES", lada: "34", nombre: "España",          min: 9,  max: 9  },
-    { id: "CO", lada: "57", nombre: "Colombia",        min: 10, max: 10 },
-    { id: "AR", lada: "54", nombre: "Argentina",       min: 10, max: 11 },
-    { id: "CL", lada: "56", nombre: "Chile",           min: 9,  max: 9  },
-    { id: "PE", lada: "51", nombre: "Perú",            min: 9,  max: 9  },
-    { id: "BR", lada: "55", nombre: "Brasil",          min: 10, max: 11 },
-    { id: "GB", lada: "44", nombre: "Reino Unido",     min: 10, max: 10 },
-    { id: "FR", lada: "33", nombre: "Francia",         min: 9,  max: 9  },
-    { id: "DE", lada: "49", nombre: "Alemania",        min: 10, max: 11 }
+    { id: "MX", lada: "52", nombre: "México",          min: 10, max: 10, fmt: [2, 4, 4] },
+    { id: "US", lada: "1",  nombre: "Estados Unidos",  min: 10, max: 10, fmt: [3, 3, 4] },
+    { id: "CA", lada: "1",  nombre: "Canadá",          min: 10, max: 10, fmt: [3, 3, 4] },
+    { id: "ES", lada: "34", nombre: "España",          min: 9,  max: 9,  fmt: [3, 3, 3] },
+    { id: "CO", lada: "57", nombre: "Colombia",        min: 10, max: 10, fmt: [3, 3, 4] },
+    { id: "AR", lada: "54", nombre: "Argentina",       min: 10, max: 11, fmt: [2, 4, 4] },
+    { id: "CL", lada: "56", nombre: "Chile",           min: 9,  max: 9,  fmt: [1, 4, 4] },
+    { id: "PE", lada: "51", nombre: "Perú",            min: 9,  max: 9,  fmt: [3, 3, 3] },
+    { id: "BR", lada: "55", nombre: "Brasil",          min: 10, max: 11, fmt: [2, 5, 4] },
+    { id: "GB", lada: "44", nombre: "Reino Unido",     min: 10, max: 10, fmt: [4, 3, 3] },
+    { id: "FR", lada: "33", nombre: "Francia",         min: 9,  max: 9,  fmt: [1, 2, 2, 2, 2] },
+    { id: "DE", lada: "49", nombre: "Alemania",        min: 10, max: 11, fmt: [3, 3, 4] }
   ];
   var PAIS_DEF = "MX";
 
@@ -164,12 +164,13 @@
       return d;
     }
     var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono,
-              pais: PAIS_DEF, demo: true, alta: hoy() };
+              pais: PAIS_DEF, whatsapp: DEMO.telefono, paisWa: PAIS_DEF, demo: true, alta: hoy() };
     (d.usuarios = d.usuarios || []).push(u);
     var idLead = uid("lead");
     (d.leads = d.leads || []).push({
       id: idLead, usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
-      pais: u.pais, correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
+      pais: u.pais, whatsapp: u.whatsapp, paisWa: u.paisWa,
+      correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
       origen: DEMO.guardados[0], alta: hoy(), actualizado: hoy(), demo: true
     });
     /* La cuenta de prueba ya trae una conversación abierta: así se ve de los
@@ -334,16 +335,35 @@
 
   function telNacional(x) { return normTel(x && x.telefono); }
   function telE164(x) { return "+" + paisDeQuien(x).lada + telNacional(x); }
-  function telWa(x) { return paisDeQuien(x).lada + telNacional(x); }
 
-  /* "+52 55 3165 0560": agrupado para que se lea, no para que se copie. */
+  /* WhatsApp puede ser otro número: mucha gente da el fijo de casa y chatea
+     desde el celular. Si no lo dieron aparte, se usa el teléfono. */
+  function waNacional(x) { return normTel(x && x.whatsapp) || telNacional(x); }
+  function paisWaDe(x) {
+    return paisDe(x && x.whatsapp ? x.paisWa : (x && x.pais));
+  }
+  function telWa(x) { return paisWaDe(x).lada + waNacional(x); }
+  function waPropio(x) { return !!(x && x.whatsapp); }
+  function waMostrar(x) {
+    return telMostrar({ telefono: waNacional(x), pais: paisWaDe(x).id });
+  }
+
+  /* "+52 55 3165 0560": agrupado para que se lea, no para que se copie. Cada
+     país agrupa distinto —el mismo número en Estados Unidos es 415 553 8217—,
+     y si la cantidad de dígitos no cuadra con su patrón, se parte de tres en
+     tres antes que mentir con un formato que no es. */
+  function agrupar(t, p) {
+    var suma = (p.fmt || []).reduce(function (a, b) { return a + b; }, 0);
+    if (!p.fmt || suma !== t.length) return t.replace(/(\d{3})(?=\d)/g, "$1 ");
+    var out = [], i = 0;
+    p.fmt.forEach(function (n) { out.push(t.slice(i, i + n)); i += n; });
+    return out.join(" ");
+  }
   function telMostrar(x) {
     var t = telNacional(x);
     if (!t) return "";
     var p = paisDeQuien(x);
-    var agrupado = t.length === 10 ? t.slice(0, 2) + " " + t.slice(2, 6) + " " + t.slice(6)
-                 : t.replace(/(\d{3})(?=\d)/g, "$1 ");
-    return "+" + p.lada + " " + agrupado;
+    return "+" + p.lada + " " + agrupar(t, p);
   }
 
   function errorTel(p, tel) {
@@ -500,6 +520,8 @@
       if (campos.correo) u.correo = normCorreo(campos.correo);
       if (campos.pais) u.pais = paisDe(campos.pais).id;
       if (campos.telefono) u.telefono = limpiarTel(campos.telefono, paisDe(campos.pais || l.pais));
+      if (campos.paisWa) u.paisWa = paisDe(campos.paisWa).id;
+      if ("whatsapp" in campos) u.whatsapp = limpiarTel(campos.whatsapp, paisDe(campos.paisWa || l.paisWa || l.pais));
     }
     save();
     return l;
@@ -638,6 +660,37 @@
     }).sort(porFecha).pop() || null;
   }
 
+  /* --------------------------- WhatsApp --------------------------- */
+  /* Abrir conversación con un asesor exige un WhatsApp: es por donde se
+     responde. Se guarda una vez y no se vuelve a preguntar. */
+
+  function tieneWhatsApp() {
+    var u = sesion();
+    return !!(u && u.whatsapp);
+  }
+
+  function guardarWhatsApp(valor, paisId) {
+    var u = sesion();
+    if (!u) return { ok: false, error: "Primero hay que crear la cuenta." };
+    var p = paisDe(paisId);
+    var n = limpiarTel(valor, p);
+    var e = errorTel(p, n);
+    if (e) return { ok: false, error: e };
+    u.whatsapp = n;
+    u.paisWa = p.id;
+    var l = leadDe(u.id);
+    if (l) { l.whatsapp = n; l.paisWa = p.id; l.actualizado = hoy(); }
+    save();
+    return { ok: true, muestra: waMostrar(u) };
+  }
+
+  /* Cuando el WhatsApp es el mismo teléfono que ya dio. */
+  function mismoWhatsApp() {
+    var u = sesion();
+    if (!u) return { ok: false };
+    return guardarWhatsApp(u.telefono, u.pais);
+  }
+
   function mensajes() { return db.mensajes.slice(); }
   /* La conversación se lee del más viejo al más nuevo, como cualquier chat.
      Ordena por fecha y no por posición: el orden del arreglo no es un contrato. */
@@ -750,6 +803,8 @@
   window.Store = {
     ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF,
     hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
+    waMostrar: waMostrar, waPropio: waPropio, tieneWhatsApp: tieneWhatsApp,
+    guardarWhatsApp: guardarWhatsApp, mismoWhatsApp: mismoWhatsApp,
     enviarMensaje: enviarMensaje, responderMensaje: responderMensaje, validarMensaje: validarMensaje,
     mensajes: mensajes, conversacion: conversacion, conversacionDe: conversacionDe,
     bandeja: bandeja, sinLeer: sinLeer, sinLeerDe: sinLeerDe,

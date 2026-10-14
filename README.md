@@ -107,7 +107,15 @@ atrapa el foco, así que se puede seguir navegando con la conversación abierta.
 botón la cierra.
 
 Cada paso ofrece **respuestas establecidas**; solo se escribe cuando hace falta un dato
-que nadie puede adivinar (nombre, correo, teléfono, el mensaje). Dos caminos:
+que nadie puede adivinar (nombre, correo, teléfono, el mensaje).
+
+**Se toma dos segundos antes de cada respuesta**, con los tres puntos de rigor. No es
+adorno: una contestación instantánea delata que no hay nadie del otro lado, y la pausa
+da tiempo a leer lo que uno acaba de responder. Mientras «escribe» no hay nada que
+tocar, así que un doble clic no adelanta el guion. Lo único inmediato son los avisos de
+validación: eso no es una respuesta, es un apunte sobre lo que acabas de escribir.
+
+Dos caminos:
 
 1. **Crear mi cuenta** — nombre, correo y teléfono con lada, uno por uno, validando en
    la propia conversación. Al terminar la sesión queda abierta y la cabecera se
@@ -116,6 +124,16 @@ que nadie puede adivinar (nombre, correo, teléfono, el mensaje). Dos caminos:
    terminar **retoma donde se quedó**. Si hay una propiedad en pantalla, la ofrece como
    tema sin preguntar cuál. También agenda visitas, con el mismo día + bloque de dos
    horas.
+
+**Hablar con un asesor exige un WhatsApp**: es por donde se responde. A quien se
+registra por ese camino se le pide directamente como WhatsApp; a quien ya tiene cuenta
+se le pregunta en un toque si es el mismo número que dio («Sí, ese mismo» / «Mi WhatsApp
+es otro número»). Se guarda aparte del teléfono —mucha gente da el fijo y chatea desde
+el celular— y pueden ser de países distintos. Se pide **una sola vez**; el panel de
+contacto de la ficha lo pide igual si todavía no está.
+
+En el panel del equipo, *Llamar* usa el teléfono y *WhatsApp* usa el WhatsApp, que
+aparece con su número cuando es distinto.
 
 El guion **nunca nombra a Jaime**: quien llega no sabe quién es. Habla de *un asesor*;
 el nombre es el de la cuenta del equipo, no el de cara al cliente.
@@ -158,6 +176,9 @@ Canadá comparten el +1.
   `+52 55 3165 0560` llegan a la misma cuenta.
 - *Llamar* y *WhatsApp* en la ficha del interesado **usan la lada guardada**, no un +52
   fijo.
+- Cada país **agrupa sus dígitos como le toca**: `+52 55 3165 0560` pero
+  `+1 415 553 8217`. Si la cantidad de dígitos no cuadra con el patrón del país, se
+  parte de tres en tres antes que mentir con un formato que no es.
 
 La lista de países vive en `PAISES`, dentro de `js/store.js`: son doce y agregar uno es
 agregar un renglón. Nada más depende de ella.

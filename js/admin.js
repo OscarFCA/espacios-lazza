@@ -129,7 +129,8 @@
 
     var directo = '<div class="chat__directo">' +
       (tel ? '<a class="btn btn--quiet btn--sm" href="tel:' + esc(S.telE164(l)) + '">' + icon("phone", 15) + 'Llamar</a>' +
-             '<a class="btn btn--quiet btn--sm" href="https://wa.me/' + esc(S.telWa(l)) + '" target="_blank" rel="noopener noreferrer">WhatsApp</a>' : "") +
+             '<a class="btn btn--quiet btn--sm" href="https://wa.me/' + esc(S.telWa(l)) + '" target="_blank" rel="noopener noreferrer">' +
+               'WhatsApp' + (S.waPropio(l) ? ' · ' + esc(S.waMostrar(l)) : "") + '</a>' : "") +
       (l.correo ? '<a class="btn btn--quiet btn--sm" href="mailto:' + esc(l.correo) + '">' + icon("mail", 15) + 'Correo</a>' : "") +
     '</div>';
 
@@ -176,7 +177,8 @@
   /* =========================== ficha de lead ========================== */
 
   function fichaLead(l) {
-    var act = window.Store.actividadDe(l.usuarioId);
+    var S = window.Store;
+    var act = S.actividadDe(l.usuarioId);
     return '' +
     '<div class="sheet__head">' +
       '<h2 id="sheet-title">' + esc(l.nombre) + '</h2>' +
@@ -206,6 +208,17 @@
               return '<option value="' + e.id + '"' + (e.id === l.etapa ? " selected" : "") + '>' + esc(e.label) + "</option>";
             }).join("") + '</select></div>' +
         '</div>' +
+        '<div class="field"><label for="lf-wa">WhatsApp' +
+          (S.waPropio(l) ? "" : ' <span class="small" style="font-weight:400;color:var(--text-secondary)">(usa el teléfono)</span>') + '</label>' +
+          '<div class="telfield">' +
+            '<select id="lf-wapais" name="paisWa" aria-label="País del WhatsApp">' +
+              window.Store.PAISES.map(function (p) {
+                return '<option value="' + p.id + '"' + (p.id === window.Store.paisDe(l.paisWa || l.pais).id ? " selected" : "") + '>' +
+                  esc(p.nombre) + " +" + p.lada + "</option>";
+              }).join("") +
+            '</select>' +
+            '<input id="lf-wa" name="whatsapp" inputmode="tel" value="' + esc(l.whatsapp || "") + '" placeholder="' + esc(l.telefono) + '">' +
+          '</div></div>' +
         '<div class="field"><label for="lf-correo">Correo</label>' +
           '<input id="lf-correo" name="correo" type="email" value="' + esc(l.correo) + '"></div>' +
         '<div class="field"><label for="lf-correos">Otros correos</label>' +
@@ -566,7 +579,7 @@
         var f = document.getElementById("lead-form");
         var d = leerForm(f);
         S.actualizarLead(f.getAttribute("data-lead"), {
-          nombre: d.nombre, telefono: d.telefono, pais: d.pais, correo: d.correo, correosExtra: d.correosExtra,
+          nombre: d.nombre, telefono: d.telefono, pais: d.pais, whatsapp: d.whatsapp, paisWa: d.paisWa, correo: d.correo, correosExtra: d.correosExtra,
           presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
         });
         ui().closeSheet(); ui().toast("Ficha actualizada."); ui().render();
@@ -685,7 +698,7 @@
     if (!f || f.getAttribute("data-lead") !== idl) return;
     var d = leerForm(f);
     window.Store.actualizarLead(idl, {
-      nombre: d.nombre, telefono: d.telefono, pais: d.pais, correo: d.correo, correosExtra: d.correosExtra,
+      nombre: d.nombre, telefono: d.telefono, pais: d.pais, whatsapp: d.whatsapp, paisWa: d.paisWa, correo: d.correo, correosExtra: d.correosExtra,
       presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
     });
   }
