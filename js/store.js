@@ -698,7 +698,7 @@
      en lugar de esperar a que alguien abra la bandeja.
      El número sale de la cuenta del equipo; si el WhatsApp de Lazza llega a
      ser otro, se cambia WA_EQUIPO y ya. */
-  var WA_EQUIPO = "";     // vacío = usa el de la cuenta del equipo
+  var WA_EQUIPO = "525522504642";   // WhatsApp de Jaime; vacío = usa el de la cuenta del equipo
 
   function whatsappEquipo() {
     if (WA_EQUIPO) return normTel(WA_EQUIPO);
@@ -731,6 +731,20 @@
     }
     return "Hola, soy " + quien + ". Acabo de escribirles por la plataforma" +
       (donde ? " sobre " + donde : "") + "." + (texto ? " " + texto : "");
+  }
+
+  /* Atajo público: escribirle al equipo por WhatsApp sin pasar por el sitio.
+     Lleva de contexto la propiedad que se está viendo y, si hay sesión, el
+     nombre. Ojo: lo que se hable por ahí NO entra al Kanban. */
+  function enlaceWaDirecto(slug) {
+    var n = whatsappEquipo();
+    if (!n) return "";
+    var u = sesion();
+    var p = slug ? catalogoCompleto().filter(function (x) { return x.slug === slug; })[0] : null;
+    var t = "Hola, vengo del sitio de Legato Capital.";
+    if (p) t += " Me interesa " + p.title + " (" + p.zona + ").";
+    if (u && !u.admin) t += " Soy " + u.nombre + ".";
+    return "https://wa.me/" + n + "?text=" + encodeURIComponent(t);
   }
 
   function enlaceWaEquipo(m) {
@@ -852,7 +866,7 @@
     ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF,
     hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
     waMostrar: waMostrar, waPropio: waPropio, tieneWhatsApp: tieneWhatsApp,
-    enlaceWaEquipo: enlaceWaEquipo, whatsappEquipo: whatsappEquipo,
+    enlaceWaEquipo: enlaceWaEquipo, enlaceWaDirecto: enlaceWaDirecto, whatsappEquipo: whatsappEquipo,
     guardarWhatsApp: guardarWhatsApp, mismoWhatsApp: mismoWhatsApp,
     enviarMensaje: enviarMensaje, responderMensaje: responderMensaje, validarMensaje: validarMensaje,
     mensajes: mensajes, conversacion: conversacion, conversacionDe: conversacionDe,

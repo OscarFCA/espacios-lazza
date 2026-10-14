@@ -99,7 +99,24 @@ El cliente ve el mismo hilo en **Tus mensajes**, dentro de su perfil, y puede se
 contestando desde ahí. Las notas de *Seguimiento* son otra cosa: son internas y el
 cliente no las ve.
 
-### Asistente guiado (el botón de la esquina)
+### Línea directa con el equipo
+
+El botón fijo de la esquina abre **WhatsApp con el equipo** (+52 55 2250 4642). Lleva de
+contexto la propiedad abierta —«Me interesa Casa para remodelar (Condesa, Cuauhtémoc)»—
+y el nombre de quien escribe si tiene sesión. No aparece con la cuenta del equipo.
+
+> Lo que se hable por ahí **no entra al Kanban**: vive en el teléfono de quien contesta.
+> El CRM solo ve lo que pasa por el sitio —*Contactar*, *Agendar visita* y el chat del
+> perfil—, que siguen funcionando igual.
+
+El número está en `WA_EQUIPO`, dentro de `js/store.js`.
+
+### Asistente guiado (dormido)
+
+> **Está apagado.** El sitio ofrece el botón de WhatsApp en su lugar. El guion se
+> conserva entero: para encenderlo, pon `ACTIVO = true` en `js/bot.js` y quita el
+> enlace `#fab-wa` de `index.html`. Sus tres suites de prueba se suspenden solas
+> mientras tanto y vuelven a correr al reactivarlo.
 
 Un **guion**, no un modelo de lenguaje. Vive en un botón fijo abajo a la derecha —como
 cualquier widget de chat— y abre una **caja en la esquina**: no oscurece el sitio ni

@@ -894,6 +894,7 @@
     });
 
     if (window.Bot) window.Bot.sincronizar();
+    pintarWhatsApp();
 
     var dot = document.getElementById("avatar-dot");
     if (dot) dot.hidden = S.esAdmin() ? !S.sinLeer() : !(u && S.oportunidades().length);
@@ -928,6 +929,18 @@
         (t.key === "saved" && fc ? '<span class="bottomnav__badge" aria-hidden="true">' + fc + "</span>" : "") +
         '<span>' + t.label + "</span></button>";
     }).join("");
+  }
+
+  /* Línea directa con el equipo. Lleva de contexto la propiedad abierta, y no
+     aparece con la cuenta del equipo: nadie se escribe a sí mismo. */
+  function pintarWhatsApp() {
+    var a = document.getElementById("fab-wa");
+    if (!a) return;
+    a.hidden = S.esAdmin();
+    document.body.classList.toggle("has-fab", !a.hidden);
+    if (a.hidden) return;
+    a.href = S.enlaceWaDirecto(state.screen === "detail" ? state.sel : "");
+    a.setAttribute("aria-label", "Escribirle al equipo por WhatsApp (se abre en otra pestaña)");
   }
 
   /* ============================ render ============================ */

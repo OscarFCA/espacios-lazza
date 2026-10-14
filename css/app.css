@@ -1169,3 +1169,10 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
 .bot__sobre { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
 .bot__accion { display: flex; align-items: center; justify-content: space-between; gap: var(--space-xs); }
 .bot__aviso { display: inline-flex; align-items: center; gap: 5px; justify-self: center; padding: 6px 2px; min-height: 32px; font-size: 12px; font-weight: 600; color: var(--action-primary); text-decoration: underline; text-underline-offset: 3px; }
+/* En carbón, no en olivo: justo encima vive el CTA primario de la ficha y dos
+   pastillas olivo apiladas se leen como un solo bloque. */
+.fab--wa {
+  text-decoration: none;
+  background: var(--action-neutral); border-color: var(--action-neutral);
+}
+.fab--wa:hover { background: var(--action-neutral-hover); }

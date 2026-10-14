@@ -14,6 +14,12 @@
 (function () {
   "use strict";
 
+  /* DORMIDO. Por decisión de producto el sitio ofrece un botón directo al
+     WhatsApp del equipo en lugar del asistente. El guion se conserva entero:
+     para volver a encenderlo basta poner ACTIVO en true y quitar el enlace
+     #fab-wa de index.html. */
+  var ACTIVO = false;
+
   var UI = null;
   function ui() { return UI || (UI = window.LegatoUI); }
   function esc(s) { return ui().esc(s); }
@@ -76,7 +82,6 @@
         if (!u) o.push({ txt: "Crear mi cuenta", va: "alta_nombre" });
         if (!hilo) o.push({ txt: "Hablar con un asesor", va: "asesor" });
         o.push({ txt: "Agendar una visita", va: "visita" });
-        o.push({ txt: "Solo estoy viendo", va: "mirar" });
         return o;
       }
     },
@@ -345,17 +350,6 @@
 
     /* ---------- salidas ---------- */
 
-    mirar: {
-      dice: ["Con calma. Si algo te llama la atención, guárdalo con el marcador y lo retomas cuando quieras.",
-             "¿Te enseño algo?"],
-      opciones: [
-        { txt: "Casas", accion: "buscar", patch: { tipos: ["Casa"] } },
-        { txt: "Terrenos", accion: "buscar", patch: { tipos: ["Terreno"] } },
-        { txt: "Oportunidades", accion: "oportunidades" },
-        { txt: "Mejor hablar con un asesor", va: "asesor" }
-      ]
-    },
-
     despedida: {
       dice: ["Aquí ando si necesitas algo más."],
       opciones: [{ txt: "Cerrar", accion: "cerrar" }]
@@ -393,7 +387,7 @@
     diceYo(op.txt);
     if (op.pone) Object.keys(op.pone).forEach(function (k) { datos[k] = op.pone[k]; });
     if (op.hace) op.hace();
-    if (op.accion) { salir(op.accion, op.patch); return; }
+    if (op.accion) { salir(op.accion); return; }
     pensar(op.va);
   }
 
@@ -456,13 +450,12 @@
 
   /* Las salidas llevan a una pantalla del sitio y cierran el asistente: el
      chat no es un sitio aparte, es una puerta al mismo. */
-  function salir(accion, patch) {
+  function salir(accion) {
     cerrar(true);
     if (accion === "cerrar") return;
     if (accion === "oportunidades") ui().go("oportunidades");
     else if (accion === "perfil") ui().go("perfil");
     else if (accion === "resultados") ui().go("results");
-    else if (accion === "buscar") ui().go("results", patch);
   }
 
   /* ============================== pintado ============================== */
@@ -639,6 +632,7 @@
 
   /* El botón no existe para la cuenta del equipo: el asesor no se escribe a sí mismo. */
   function sincronizarBoton() {
+    if (!ACTIVO) return;
     var b = document.getElementById("fab-chat");
     if (!b) return;
     b.hidden = S().esAdmin();
@@ -647,6 +641,7 @@
   }
 
   function montar() {
+    if (!ACTIVO) return;
     caja = document.getElementById("chat");
     var b = document.getElementById("fab-chat");
     if (b) b.addEventListener("click", abrir);
