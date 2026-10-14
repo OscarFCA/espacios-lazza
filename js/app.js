@@ -711,17 +711,21 @@
     return cabeza + perfilPropio();
   }
 
+  /* El chat del perfil está oculto: hoy el canal con el equipo es WhatsApp.
+     Lo escrito no se pierde —sigue en la ficha del interesado, del lado del
+     equipo—; para devolverlo, pon CHAT_PERFIL en true. */
+  var CHAT_PERFIL = false;
+
   function perfilPropio() {
     var guardadas = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
     var oport = S.oportunidades();
-    var hilo = S.conversacionDe(S.sesion().id);
+    var hilo = CHAT_PERFIL ? S.conversacionDe(S.sesion().id) : [];
     return '<div class="container">' +
 
+      (!CHAT_PERFIL ? "" :
       '<section class="perfil__seccion" id="mis-mensajes" tabindex="-1">' +
         '<h2>Tus mensajes</h2>' +
         '<p class="perfil__nota">Lo que has pedido al equipo y lo que te han respondido.</p>' +
-        /* Con la sesión abierta se puede escribir cuando sea, haya hilo o no:
-           los datos de contacto ya están dados. */
         (hilo.length
           ? burbujasHTML(hilo)
           : '<p class="perfil__vacio">Todavía no hay mensajes. Escribe abajo y un asesor te responde, ' +
@@ -732,7 +736,7 @@
             (hilo.length ? "Escribe al equipo…" : "Cuéntanos qué buscas…") + '"></textarea>' +
           '<button class="btn btn--primary btn--sm" data-action="chat-send">Enviar</button>' +
         '</div>' +
-      '</section>' +
+      '</section>') +
 
       '<section class="perfil__seccion">' +
         '<p class="badge-pro">' + icon("lock", 12) + 'Solo para tu cuenta</p>' +
@@ -1495,7 +1499,8 @@
         : '<p class="lead">Tu mensaje llegó al equipo.</p>' +
           '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
           'Te respondemos por ' + esc(canalLabel(m.canal).toLowerCase()) +
-          ' en menos de 24 horas hábiles. La conversación queda guardada en tu perfil.</p>') +
+          ' en menos de 24 horas hábiles.' +
+          (CHAT_PERFIL ? ' La conversación queda guardada en tu perfil.' : '') + '</p>') +
     '</div>' +
     (S.enlaceWaEquipo(m)
       ? '<div class="sheet__extra">' +
@@ -1506,8 +1511,10 @@
         '</div>'
       : "") +
     '<div class="sheet__foot">' +
-      '<button class="btn btn--link" data-action="sheet-close">Seguir viendo</button>' +
-      '<button class="btn btn--primary" data-action="ver-mensajes">Ver la conversación</button>' +
+      (CHAT_PERFIL
+        ? '<button class="btn btn--link" data-action="sheet-close">Seguir viendo</button>' +
+          '<button class="btn btn--primary" data-action="ver-mensajes">Ver la conversación</button>'
+        : '<button class="btn btn--primary btn--block" data-action="sheet-close">Listo</button>') +
     '</div>';
   }
 

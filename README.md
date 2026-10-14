@@ -127,9 +127,7 @@ Qué pasa del lado del equipo:
   mueve la ficha a *Visita agendada* y le avisa al cliente en el mismo hilo. Es lo
   único que cambia una etapa por su cuenta: todo lo demás lo decide el equipo.
 
-El cliente ve el mismo hilo en **Tus mensajes**, dentro de su perfil, y puede seguir
-contestando desde ahí. Las notas de *Seguimiento* son otra cosa: son internas y el
-cliente no las ve.
+Las notas de *Seguimiento* son otra cosa: son internas y el cliente no las ve.
 
 ### Línea directa con el equipo
 
@@ -189,8 +187,8 @@ el nombre es el de la cuenta del equipo, no el de cara al cliente.
 
 **El widget también es la conversación, no solo el camino hacia ella.** Quien ya tiene
 hilo abierto lo ve de primera opción —*Continuar mi conversación*— y escribe libremente
-ahí mismo: es el mismo hilo que vive en su perfil y en la bandeja del equipo. Desde el
-guion se llega con *Seguir escribiendo aquí*, y *Ver opciones* regresa al menú.
+ahí mismo: es el mismo hilo que el equipo ve en la ficha del interesado. Desde el guion
+se llega con *Seguir escribiendo aquí*, y *Ver opciones* regresa al menú.
 
 En modo libre **no hay tres puntos ni respuesta automática**: del otro lado todavía no
 hay nadie, y fingirlo sería mentir. El mensaje aparece en el hilo y ya. Enter hace salto
@@ -273,8 +271,11 @@ para el usuario y no solo para el equipo.
 ### Perfil
 
 `#/perfil` es la pantalla del usuario: retrato (el símbolo de Legato sobre olivo), sus
-datos, **Tus mensajes** (la conversación con el equipo), **Oportunidades antes que
-nadie** y **Tus guardados**. Se llega tocando el
+datos, **Oportunidades antes que nadie** y **Tus guardados**.
+
+> El chat del perfil (**Tus mensajes**) está **oculto**: hoy el canal con el equipo es
+> WhatsApp. Nada se pierde —lo escrito sigue en la ficha del interesado, del lado del
+> equipo—; para devolverlo, pon `CHAT_PERFIL` en `true` dentro de `js/app.js`. Se llega tocando el
 retrato del header, o *Perfil* en la barra inferior del teléfono. Si la cuenta es del
 equipo, el perfil ofrece además entrar al panel.
 
