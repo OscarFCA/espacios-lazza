@@ -32,7 +32,7 @@ No requiere Node ni compilación. Se publica tal cual en GitHub Pages o HostGato
 |---|---|---|
 | **Entra** | **Crear cuenta** (CTA verde del header): nombre completo, correo y teléfono | **Iniciar sesión**, el mismo botón que usa cualquiera |
 | **Ve** | Su perfil: oportunidades y guardados | El mismo perfil, con una barra de pestañas extra |
-| **Puede** | Buscar, ver fichas, **guardar** y **compartir** | Publicar y editar propiedades, mover interesados en el Kanban, ver quién guardó o compartió qué |
+| **Puede** | Buscar, ver fichas, **guardar**, **compartir**, **escribir al equipo** y **pedir una visita** | Publicar y editar propiedades, **leer y contestar los mensajes**, confirmar visitas, mover interesados en el Kanban, ver quién guardó o compartió qué |
 | **Sin registro** | Puede navegar y buscar; al intentar guardar o compartir aparece el registro con el contexto de lo que iba a hacer, y al completarlo la acción se ejecuta sola | — |
 
 **Un solo login decide a dónde va cada quien.** Se pide primero el correo o el
@@ -42,14 +42,16 @@ ofrece crearla con esos datos. La cuenta del equipo vive en la misma lista de us
 marcada con `admin: true`, y nadie puede registrarse con ese correo.
 
 **El panel no es una pantalla aparte: son pestañas del propio perfil.** La cuenta con
-bandera de equipo ve en `#/perfil` una barra con *Mi perfil · Interesados · Propiedades ·
-Actividad*; sin la bandera esa barra no existe, y forzar `#/perfil/interesados` por URL
-no muestra nada del panel.
+bandera de equipo ve en `#/perfil` una barra con *Mi perfil · Mensajes · Interesados ·
+Propiedades · Actividad*; sin la bandera esa barra no existe, y forzar
+`#/perfil/interesados` por URL no muestra nada del panel.
 
+- **Mensajes**: la bandeja de entrada. Una fila por cliente, ordenada por lo último
+  que pasó, con filtros *Todas · Sin leer · Visitas por confirmar*.
 - **Interesados**: Kanban de 6 etapas (Nuevo · Contactado · Visita agendada ·
   Negociación · Cerrado · Descartado).
 - **Propiedades**: alta, edición, retiro y fotos.
-- **Actividad**: quién guardó y quién compartió, con fecha.
+- **Actividad**: quién guardó, compartió, escribió o pidió visita, con fecha.
 
 Cada pestaña tiene su URL (`#/perfil/interesados`), así que el botón atrás las recorre.
 `#/admin` sigue funcionando: redirige a la pestaña del tablero.
@@ -64,6 +66,38 @@ cuántas lleva.
 
 El Kanban se mueve arrastrando con el ratón y, en táctil y teclado, con el selector de
 etapa que lleva cada tarjeta.
+
+### Contacto y visitas: la bandeja es el Kanban
+
+**No hay dos sistemas.** Cada mensaje cuelga de la ficha del interesado, así que la
+bandeja y el tablero leen lo mismo: *Mensajes* es el Kanban ordenado por conversación
+en vez de por etapa, y una fila abre exactamente la misma ficha que una tarjeta.
+
+Desde cualquier propiedad el cliente puede:
+
+- **Hablar con un asesor** — escribe su pregunta y elige por dónde prefiere que le
+  contesten (llamada, WhatsApp o correo).
+- **Solicitar una visita** — elige día y uno de cinco bloques de dos horas. El
+  calendario no deja elegir días pasados, y la confirmación dice con todas sus letras
+  que **todavía no está agendada**: la confirma el equipo.
+
+Sin cuenta, el panel de registro aparece primero y al terminar continúa con el mensaje
+que la persona iba a mandar. **Escribir da de alta al interesado si no existía**, así
+que nadie se queda fuera del tablero.
+
+Qué pasa del lado del equipo:
+
+- La tarjeta del Kanban se marca, dice cuántos mensajes van sin leer y asoma el último.
+- La ficha abre con **la conversación arriba** —antes que los datos comerciales—, con
+  botones para llamar, abrir WhatsApp o escribir un correo, y un campo para responder.
+  Abrirla la marca como leída.
+- Una **visita pendiente** sale destacada con su día y horario. *Confirmar visita*
+  mueve la ficha a *Visita agendada* y le avisa al cliente en el mismo hilo. Es lo
+  único que cambia una etapa por su cuenta: todo lo demás lo decide el equipo.
+
+El cliente ve el mismo hilo en **Tus mensajes**, dentro de su perfil, y puede seguir
+contestando desde ahí. Las notas de *Seguimiento* son otra cosa: son internas y el
+cliente no las ve.
 
 ### Oportunidades con acceso anticipado
 
@@ -81,7 +115,8 @@ para el usuario y no solo para el equipo.
 ### Perfil
 
 `#/perfil` es la pantalla del usuario: retrato (el símbolo de Legato sobre olivo), sus
-datos, **Oportunidades antes que nadie** y **Tus guardados**. Se llega tocando el
+datos, **Tus mensajes** (la conversación con el equipo), **Oportunidades antes que
+nadie** y **Tus guardados**. Se llega tocando el
 retrato del header, o *Perfil* en la barra inferior del teléfono. Si la cuenta es del
 equipo, el perfil ofrece además entrar al panel.
 
@@ -89,11 +124,13 @@ equipo, el perfil ofrece además entrar al panel.
 
 | | Entra con | Qué ve |
 |---|---|---|
-| **Usuario común** — Elías Rico | `demo@legato.mx` (sin contraseña) | Su perfil: oportunidades reservadas y sus 3 guardados |
-| **Equipo** — Jaime Lavín | `info@lazza.com.mx` o `5522504642` + contraseña | El mismo perfil, más el acceso al panel con el Kanban |
+| **Usuario común** — Elías Rico | `demo@legato.mx` (sin contraseña) | Su perfil: una conversación abierta con el equipo, oportunidades reservadas y sus 3 guardados |
+| **Equipo** — Jaime Lavín | `info@lazza.com.mx` o `5522504642` + contraseña | El mismo perfil, más la bandeja y el Kanban, con tres conversaciones de ejemplo |
 
-Las dos cuentas usan la misma pantalla de perfil; la del equipo solo agrega el botón
-*Ir al panel*.
+Las dos cuentas usan la misma pantalla de perfil; la del equipo solo agrega la barra
+de pestañas. Con la sesión del equipo, *Contactar* y *Agendar visita* no abren el
+formulario: avisan que esa es la vista del cliente, para no crearse una ficha a sí
+mismo en el Kanban.
 
 La cuenta de prueba aparece anotada en la propia pantalla de acceso. Para quitarla
 antes de salir a producción: borra `DEMO` y `asegurarDemo` en `js/store.js` y la línea
@@ -102,8 +139,12 @@ de la cuenta de prueba en `loginHTML` de `js/app.js`.
 > ### Límites de esta versión
 >
 > No hay servidor: **todo vive en el `localStorage` del navegador**. En la práctica:
-> una cuenta creada en un teléfono no existe en otro, y el panel solo ve la actividad
-> ocurrida en ese mismo navegador (por eso trae cuatro interesados de ejemplo).
+> una cuenta creada en un teléfono no existe en otro, el panel solo ve la actividad
+> ocurrida en ese mismo navegador (por eso trae cuatro interesados de ejemplo) y
+> **los mensajes no salen a ningún lado**: no se manda correo ni WhatsApp, la
+> conversación vive en el navegador de cada quien. Los botones *Llamar*, *WhatsApp* y
+> *Correo* de la ficha sí son reales: abren la app del teléfono con los datos del
+> interesado.
 > La contraseña del panel está como hash en `js/store.js`, pero **en un sitio estático
 > ningún control de acceso es real**: cualquiera puede saltárselo desde el navegador.
 > Es una maqueta funcional para validar el flujo, no un sistema en operación.
@@ -299,7 +340,11 @@ maps: "https://maps.app.goo.gl/xxxxxxxx"
 - Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
 - Backend real: cuentas con contraseña, datos compartidos entre dispositivos y un
   panel con acceso de verdad. Hoy `js/store.js` es el único archivo a sustituir.
-- Formularios reales de *Contactar* y *Agendar visita*.
+- Que los mensajes **salgan del navegador**: hoy *Contactar* y *Agendar visita*
+  guardan la conversación en local. Falta el envío real (correo o WhatsApp) y la
+  notificación al equipo.
+- Teléfono y WhatsApp públicos de Legato en la ficha y el pie: hoy el único canal es
+  el formulario.
 - Aviso de privacidad: el registro ya pide datos personales (LFPDPPP).
 - Cuenta, guardados sincronizados (hoy en `localStorage`) y búsquedas guardadas.
 - Fotografía de las 13 propiedades.

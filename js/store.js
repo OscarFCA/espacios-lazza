@@ -8,13 +8,17 @@
  *   usuarios    — quien se registró (nombre, correo, teléfono)
  *   sesion      — la cuenta activa en este navegador
  *   leads       — ficha comercial de cada interesado, con su etapa en el Kanban
- *   actividad   — cada guardado y cada compartida, con fecha
+ *   mensajes    — bandeja del equipo: peticiones de contacto y de visita
+ *   actividad   — cada guardado, compartida, contacto y visita, con fecha
  *   propiedades — altas y ediciones del administrador sobre el catálogo base
  */
 (function () {
   "use strict";
 
-  var KEY = "legato:db:v1";
+  /* v2 añade la bandeja de mensajes. Subir la versión repone la base sembrada:
+     en un prototipo con datos de ejemplo vale más que todo el mundo vea las
+     conversaciones de muestra a conservar una base a medias. */
+  var KEY = "legato:db:v2";
   var ADMIN_SALT = "legato.capital.2026";
   // SHA-256 de la contraseña del administrador. NO es una medida de seguridad:
   // en un sitio estático el navegador puede saltarse cualquier validación.
@@ -42,10 +46,32 @@
   ];
 
   function hoy() { return new Date().toISOString(); }
+  /* "Hoy" en el reloj de quien usa el sitio, no en UTC: en México (UTC-6) el
+     día cambia seis horas antes en UTC y el calendario adelantaba un día
+     desde las 18:00. */
+  function hoyLocal() {
+    var d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  }
   function uid(p) { return (p || "id") + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
+  /* Horarios en los que se puede pedir una visita. Bloques de dos horas: nadie
+     puede comprometer una hora exacta sin confirmar con el propietario. */
+  var HORARIOS = [
+    { id: "09-11", label: "9:00 a 11:00" },
+    { id: "11-13", label: "11:00 a 13:00" },
+    { id: "13-15", label: "13:00 a 15:00" },
+    { id: "15-17", label: "15:00 a 17:00" },
+    { id: "17-19", label: "17:00 a 19:00" }
+  ];
+  var CANALES = [
+    { id: "telefono", label: "Llamada" },
+    { id: "whatsapp", label: "WhatsApp" },
+    { id: "correo", label: "Correo" }
+  ];
+
   function vacio() {
-    return { usuarios: [], sesion: null, admin: false, leads: [], actividad: [], propiedades: [], seed: false };
+    return { usuarios: [], sesion: null, admin: false, leads: [], mensajes: [], actividad: [], propiedades: [], seed: false };
   }
 
   var db = load();
@@ -115,10 +141,24 @@
     }
     var u = { id: uid("usr"), nombre: DEMO.nombre, correo: DEMO.correo, telefono: DEMO.telefono, demo: true, alta: hoy() };
     (d.usuarios = d.usuarios || []).push(u);
+    var idLead = uid("lead");
     (d.leads = d.leads || []).push({
-      id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
+      id: idLead, usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
       correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
       origen: DEMO.guardados[0], alta: hoy(), actualizado: hoy(), demo: true
+    });
+    /* La cuenta de prueba ya trae una conversación abierta: así se ve de los
+       dos lados —bandeja del equipo y perfil del cliente— desde el minuto uno. */
+    d.mensajes = d.mensajes || [];
+    d.mensajes.unshift({
+      id: uid("msg"), leadId: idLead, usuarioId: u.id, de: "cliente", tipo: "contacto",
+      slug: DEMO.compartida, texto: "Me interesa el terreno de Del Valle. ¿Cuánto mide el frente y qué se puede construir ahí?",
+      canal: "whatsapp", dia: "", hora: "", fecha: new Date(Date.now() - 2 * 86400000).toISOString(), leido: true, demo: true
+    });
+    d.mensajes.unshift({
+      id: uid("msg"), leadId: idLead, usuarioId: u.id, de: "equipo", tipo: "respuesta",
+      slug: "", texto: "Con gusto. El terreno de Del Valle tiene 14 m de frente y uso de suelo H3. ¿Te late que lo veamos esta semana?",
+      canal: "", dia: "", hora: "", fecha: new Date(Date.now() - 86400000).toISOString(), leido: true, demo: true
     });
     d.favoritos = d.favoritos || {};
     d.favoritos[u.id] = {};
@@ -171,9 +211,21 @@
           "Interesado en Santa Fe por la doble orientación.",
           "Pidió uso de suelo por escrito. Se lo mandamos el martes.",
           "Visita confirmada para el viernes a las 11:00 con su socio."
+        ],
+        chat: [
+          { de: "cliente", tipo: "visita", canal: "telefono", dias: 5, enDias: 3, hora: "11-13", confirmada: true,
+            texto: "Voy con mi socio. Si se puede, nos gustaría ver también el acceso de servicio." },
+          { de: "equipo", tipo: "respuesta", dias: 4,
+            texto: "Confirmada la visita. Nos vemos en la entrada principal; llevamos el plano del predio impreso." }
         ] },
       { nombre: "Claudia Benítez", correo: "claudia.benitez@outlook.com", telefono: "5518230055",
-        etapa: "nuevo", presupuesto: 0, empresa: "", propiedad: "condesa-remodelar", notas: [] },
+        etapa: "nuevo", presupuesto: 0, empresa: "", propiedad: "condesa-remodelar", notas: [],
+        chat: [
+          { de: "cliente", tipo: "contacto", canal: "whatsapp", dias: 2,
+            texto: "Vi la casa de la Condesa. ¿Se puede ampliar hacia el patio? Me interesa saber qué permite el uso de suelo antes de agendar nada." },
+          { de: "cliente", tipo: "visita", canal: "whatsapp", dias: 1, enDias: 2, hora: "09-11",
+            texto: "Mejor la veo en persona. ¿Puede ser esta semana?" }
+        ] },
       { nombre: "Ricardo Lemus", correo: "rlemus@estudiolemus.com", telefono: "5569014488",
         etapa: "negociacion", presupuesto: 9500000, empresa: "Estudio Lemus · Arquitectura",
         propiedad: "escandon-mixto",
@@ -185,14 +237,29 @@
     base.forEach(function (b, i) {
       var u = { id: uid("usr"), nombre: b.nombre, correo: b.correo, telefono: b.telefono, alta: hoy(), ejemplo: true };
       d.usuarios.push(u);
+      var idLead = uid("lead");
       d.leads.push({
-        id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
+        id: idLead, usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
         correosExtra: "", presupuesto: b.presupuesto, empresa: b.empresa,
         seguimiento: b.notas.map(function (t, k) {
           var f = new Date(Date.now() - (b.notas.length - k) * 86400000 * 2).toISOString();
           return { id: uid("nota"), texto: t, fecha: f };
         }).reverse(),
         etapa: b.etapa, origen: b.propiedad, alta: hoy(), actualizado: hoy(), ejemplo: true
+      });
+      /* Conversaciones de ejemplo: sin ellas la bandeja nace vacía y no se
+         puede evaluar el flujo de mensajes. */
+      (b.chat || []).forEach(function (c) {
+        d.mensajes.unshift({
+          id: uid("msg"), leadId: idLead, usuarioId: u.id, de: c.de,
+          tipo: c.tipo, slug: c.de === "cliente" ? b.propiedad : "",
+          texto: c.texto, canal: c.canal || "",
+          dia: c.enDias ? new Date(Date.now() + c.enDias * 86400000).toISOString().slice(0, 10) : "",
+          hora: c.hora || "",
+          fecha: new Date(Date.now() - c.dias * 86400000).toISOString(),
+          confirmada: !!c.confirmada,
+          leido: c.de === "equipo" || b.etapa !== "nuevo", ejemplo: true
+        });
       });
       d.actividad.push({
         id: uid("act"), tipo: i % 3 === 0 ? "compartido" : "guardado",
@@ -396,6 +463,149 @@
     return catalogoCompleto().some(function (p) { return p.slug === slug; });
   }
 
+  /* ------------------------------ mensajes ------------------------------ */
+  /* Bandeja del equipo y conversación del cliente son la MISMA lista: cada
+     mensaje cuelga de una ficha del Kanban. Por eso escribir desde el sitio
+     da de alta al interesado si todavía no existía: el tablero nunca se
+     entera tarde de que alguien escribió. */
+
+  function leadDe(usuarioId) {
+    return db.leads.filter(function (l) { return l.usuarioId === usuarioId; })[0] || null;
+  }
+
+  function asegurarLead(u, origen) {
+    var l = leadDe(u.id);
+    if (l) {
+      if (!l.origen && origen) l.origen = origen;
+      return l;
+    }
+    l = {
+      id: uid("lead"), usuarioId: u.id, nombre: u.nombre, correo: u.correo, telefono: u.telefono,
+      correosExtra: "", presupuesto: 0, empresa: "", seguimiento: [], etapa: "nuevo",
+      origen: origen || "", alta: hoy(), actualizado: hoy()
+    };
+    db.leads.push(l);
+    return l;
+  }
+
+  /* Una visita sin día no es una visita; un mensaje vacío no es un mensaje. */
+  function validarMensaje(d) {
+    var err = {};
+    var esVisita = d.tipo === "visita";
+    if (esVisita) {
+      if (!d.dia) err.dia = "Elige el día que te viene bien.";
+      else if (d.dia < hoyLocal()) err.dia = "Esa fecha ya pasó. Elige una a partir de hoy.";
+      if (!d.hora) err.hora = "Elige un horario.";
+    } else if (String(d.texto || "").trim().length < 4) {
+      err.texto = "Cuéntanos qué necesitas saber.";
+    }
+    return err;
+  }
+
+  /* Lo manda el cliente desde una ficha (o desde "Hablar con un asesor"). */
+  function enviarMensaje(d) {
+    var u = sesion();
+    if (!u) return { ok: false, motivo: "sin-sesion" };
+    var err = validarMensaje(d);
+    if (Object.keys(err).length) return { ok: false, errores: err };
+
+    var l = asegurarLead(u, d.slug);
+    var m = {
+      id: uid("msg"), leadId: l.id, usuarioId: u.id, de: "cliente",
+      tipo: d.tipo === "visita" ? "visita" : "contacto",
+      slug: d.slug || "", texto: String(d.texto || "").trim(),
+      canal: d.canal || "telefono", dia: d.dia || "", hora: d.hora || "",
+      fecha: hoy(), leido: false
+    };
+    db.mensajes.unshift(m);
+    l.actualizado = hoy();
+    registrarActividad(m.tipo, m.slug);   // también guarda
+    save();
+    return { ok: true, mensaje: m, lead: l };
+  }
+
+  /* Lo manda el equipo desde la bandeja o desde la ficha del interesado. */
+  function responderMensaje(leadId, texto) {
+    var l = lead(leadId);
+    if (!l || !String(texto || "").trim()) return null;
+    var m = {
+      id: uid("msg"), leadId: l.id, usuarioId: l.usuarioId, de: "equipo",
+      tipo: "respuesta", slug: "", texto: String(texto).trim(),
+      canal: "", dia: "", hora: "", fecha: hoy(), leido: true
+    };
+    db.mensajes.unshift(m);
+    l.actualizado = hoy();
+    save();
+    return m;
+  }
+
+  /* Confirmar una visita es lo único que mueve una ficha de etapa sola: el
+     equipo acaba de comprometer un día, y el tablero tiene que reflejarlo. */
+  function confirmarVisita(mensajeId) {
+    var m = db.mensajes.filter(function (x) { return x.id === mensajeId; })[0];
+    if (!m || m.tipo !== "visita" || m.confirmada) return null;
+    m.confirmada = true;
+    m.leido = true;
+    var l = lead(m.leadId);
+    if (l) {
+      l.etapa = "visita";
+      l.actualizado = hoy();
+    }
+    save();
+    return m;
+  }
+  function visitaPendiente(leadId) {
+    return db.mensajes.filter(function (m) {
+      return m.leadId === leadId && m.tipo === "visita" && !m.confirmada;
+    }).sort(porFecha).pop() || null;
+  }
+
+  function mensajes() { return db.mensajes.slice(); }
+  /* La conversación se lee del más viejo al más nuevo, como cualquier chat.
+     Ordena por fecha y no por posición: el orden del arreglo no es un contrato. */
+  function porFecha(a, b) { return new Date(a.fecha) - new Date(b.fecha); }
+  function conversacion(leadId) {
+    return db.mensajes.filter(function (m) { return m.leadId === leadId; }).sort(porFecha);
+  }
+  function conversacionDe(usuarioId) {
+    return db.mensajes.filter(function (m) { return m.usuarioId === usuarioId; }).sort(porFecha);
+  }
+  function sinLeerDe(leadId) {
+    return db.mensajes.filter(function (m) {
+      return m.leadId === leadId && m.de === "cliente" && !m.leido;
+    }).length;
+  }
+  function sinLeer() {
+    return db.mensajes.filter(function (m) { return m.de === "cliente" && !m.leido; }).length;
+  }
+  function marcarLeido(leadId) {
+    db.mensajes.forEach(function (m) { if (m.leadId === leadId) m.leido = true; });
+    save();
+  }
+  function ultimoMensaje(leadId) {
+    var c = conversacion(leadId);
+    return c.length ? c[c.length - 1] : null;
+  }
+
+  /* La bandeja es una fila por cliente, no una lista de mensajes sueltos:
+     una conversación con tres peticiones sigue siendo una conversación. */
+  function bandeja() {
+    var porLead = {};
+    db.mensajes.forEach(function (m) {
+      if (!porLead[m.leadId]) porLead[m.leadId] = { leadId: m.leadId, total: 0, sinLeer: 0, ultimo: m };
+      var h = porLead[m.leadId];
+      h.total++;
+      if (m.de === "cliente" && !m.leido) h.sinLeer++;
+      if (new Date(m.fecha) > new Date(h.ultimo.fecha)) h.ultimo = m;
+    });
+    return Object.keys(porLead).map(function (k) {
+      var h = porLead[k];
+      h.lead = lead(k);
+      return h;
+    }).filter(function (h) { return !!h.lead; })
+      .sort(function (a, b) { return new Date(b.ultimo.fecha) - new Date(a.ultimo.fecha); });
+  }
+
   /* ---------------------------- propiedades ----------------------------- */
   /* El catálogo que ve el sitio = base (js/data.js) + altas y ediciones del
      administrador, que mandan sobre la base cuando comparten slug. */
@@ -460,7 +670,12 @@
   }
 
   window.Store = {
-    ETAPAS: ETAPAS,
+    ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, hoyLocal: hoyLocal,
+    enviarMensaje: enviarMensaje, responderMensaje: responderMensaje, validarMensaje: validarMensaje,
+    mensajes: mensajes, conversacion: conversacion, conversacionDe: conversacionDe,
+    bandeja: bandeja, sinLeer: sinLeer, sinLeerDe: sinLeerDe,
+    confirmarVisita: confirmarVisita, visitaPendiente: visitaPendiente,
+    marcarLeido: marcarLeido, ultimoMensaje: ultimoMensaje,
     registrar: registrar, validarRegistro: validarRegistro, sesion: sesion, salir: salir,
     buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion, DEMO: DEMO, alAvisar: alAvisar,
     usuarios: function () { return db.usuarios.slice(); },

@@ -59,7 +59,13 @@
       close: '<path d="M6 6l12 12M18 6L6 18"/>',
       note: '<path d="M7 4h10a1 1 0 0 1 1 1v14l-6-3-6 3V5a1 1 0 0 1 1-1Z"/>',
       lock: '<rect x="4" y="10" width="16" height="10" rx="1.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
-      alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'
+      alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>',
+      chat: '<path d="M20 14a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/>',
+      calendar: '<rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3.5V6M16 3.5V6"/>',
+      clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+      check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+      phone: '<path d="M7 3.5h3l1.5 4-2 1.5a12 12 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 5 5.7 2 2 0 0 1 7 3.5Z"/>',
+      mail: '<rect x="3" y="5.5" width="18" height="13" rx="1.5"/><path d="m3.5 7 8.5 6 8.5-6"/>'
     };
     return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
       'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths[name] + "</svg>";
@@ -324,7 +330,7 @@
     if (path.indexOf("#/perfil") === 0) {
       if (!S.sesion()) { state.screen = "oportunidades"; render(); pedirLogin(); return; }
       var t = path.slice("#/perfil".length).replace(/^\//, "");
-      var validas = ["interesados", "propiedades", "actividad"];
+      var validas = ["mensajes", "interesados", "propiedades", "actividad"];
       state.perfilTab = (S.esAdmin() && validas.indexOf(t) >= 0) ? t : "perfil";
       state.screen = "perfil";
       render();
@@ -333,7 +339,7 @@
 
     // El panel dejó de ser pantalla aparte: vive en las pestañas del perfil.
     if (path.indexOf("#/admin") === 0) {
-      if (S.esAdmin()) { location.replace("#/perfil/interesados"); return; }
+      if (S.esAdmin()) { location.replace("#/perfil/" + (S.sinLeer() ? "mensajes" : "interesados")); return; }
       history.replaceState(null, "", "#/");
       state.screen = "home";
       render();
@@ -652,6 +658,7 @@
   /* ---------- Perfil ---------- */
 
   var TABS_ADMIN = [
+    { id: "mensajes", label: "Mensajes" },
     { id: "interesados", label: "Interesados" },
     { id: "propiedades", label: "Propiedades" },
     { id: "actividad", label: "Actividad" }
@@ -669,7 +676,9 @@
       return '<button data-action="perfil-tab" data-tab="' + t.id + '"' + (on ? ' aria-current="page"' : "") + '>' +
         esc(t.label) + (t.n != null ? '<span class="tabsnav__n">' + t.n + "</span>" : "") + "</button>";
     }).join("") +
-      (c.nuevos ? '<span class="tabsnav__hint">' + c.nuevos + ' sin contactar</span>' : "") +
+      (c.sinLeer ? '<span class="tabsnav__hint">' + c.sinLeer + (c.sinLeer === 1 ? ' mensaje sin leer' : ' mensajes sin leer') + '</span>'
+        : c.visitas ? '<span class="tabsnav__hint">' + c.visitas + (c.visitas === 1 ? ' visita por confirmar' : ' visitas por confirmar') + '</span>'
+        : c.nuevos ? '<span class="tabsnav__hint">' + c.nuevos + ' sin contactar</span>' : "") +
     '</nav>';
   }
 
@@ -701,7 +710,23 @@
   function perfilPropio() {
     var guardadas = DATA.concat(S.oportunidades()).filter(function (p) { return favs()[p.slug]; });
     var oport = S.oportunidades();
+    var hilo = S.conversacionDe(S.sesion().id);
     return '<div class="container">' +
+
+      '<section class="perfil__seccion" id="mis-mensajes" tabindex="-1">' +
+        '<h2>Tus mensajes</h2>' +
+        '<p class="perfil__nota">Lo que has pedido al equipo y lo que te han respondido.</p>' +
+        (hilo.length
+          ? burbujasHTML(hilo) +
+            '<div class="notafrm" style="margin-top:16px">' +
+              '<label class="sr-only" for="chat-txt">Escribir al equipo</label>' +
+              '<textarea id="chat-txt" rows="2" placeholder="Escribe al equipo…"></textarea>' +
+              '<button class="btn btn--primary btn--sm" data-action="chat-send">Enviar</button>' +
+            '</div>'
+          : '<div class="state" style="margin-top:24px"><h3>Todavía no has escrito al equipo.</h3>' +
+            '<p>Desde cualquier propiedad puedes pedir información o agendar una visita.</p>' +
+            '<button class="btn btn--primary" data-action="search">Ver propiedades</button></div>') +
+      '</section>' +
 
       '<section class="perfil__seccion">' +
         '<p class="badge-pro">' + icon("lock", 12) + 'Solo para tu cuenta</p>' +
@@ -867,7 +892,7 @@
     });
 
     var dot = document.getElementById("avatar-dot");
-    if (dot) dot.hidden = !(u && S.oportunidades().length);
+    if (dot) dot.hidden = S.esAdmin() ? !S.sinLeer() : !(u && S.oportunidades().length);
 
     var items = navItems();
     var desktop = items.map(function (n) {
@@ -1243,7 +1268,7 @@
       if (!res.ok) { openSheet(loginHTML(2, "password")); return; }
       closeSheet();
       toast("Sesión de administrador iniciada.");
-      state.perfilTab = "interesados";
+      state.perfilTab = S.sinLeer() ? "mensajes" : "interesados";
       go("perfil");
     });
   }
@@ -1269,6 +1294,206 @@
     if (pend) pend();
     // Saludo neutro: el registro no pregunta género y no hay por qué suponerlo.
     else toast("Listo, " + r.usuario.nombre.split(" ")[0] + ". Tu cuenta quedó creada.");
+  }
+
+  /* ==================== contacto y agenda de visitas ==================== */
+  /* Las dos piden lo mismo —quién, por dónde y sobre qué propiedad— así que
+     comparten panel. La visita añade día y horario. Todo acaba en la misma
+     conversación: la bandeja del equipo y el Kanban leen de ahí. */
+
+  var msj = { tipo: "contacto", slug: "" };
+
+  function propDe(slug) {
+    return S.catalogoCompleto().filter(function (x) { return x.slug === slug; })[0] || null;
+  }
+
+  function propLineaHTML(slug) {
+    var p = propDe(slug);
+    if (!p) return "";
+    return '<div class="msj__prop">' + icon("pin", 18) +
+      '<span><strong>' + esc(p.title) + '</strong>' +
+      '<span>' + esc(p.zona) + ' · ' + esc(money(p.price, p.op)) + '</span></span></div>';
+  }
+
+  function fechaLarga(iso) {
+    try {
+      // El día se guarda como AAAA-MM-DD; leerlo con Date lo correría de zona horaria.
+      var p = String(iso).split("-");
+      return new Date(p[0], Number(p[1]) - 1, p[2])
+        .toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
+    } catch (e) { return iso; }
+  }
+  function horaLabel(id) {
+    var h = S.HORARIOS.filter(function (x) { return x.id === id; })[0];
+    return h ? h.label : id;
+  }
+  function canalLabel(id) {
+    var c = S.CANALES.filter(function (x) { return x.id === id; })[0];
+    return c ? c.label : id;
+  }
+
+  function campoError(id, txt) {
+    return txt ? '<p class="field__error" id="' + id + '-e">' + icon("alert", 16) + esc(txt) + "</p>" : "";
+  }
+
+  function mensajeHTML(errores, v) {
+    errores = errores || {}; v = v || {};
+    var esVisita = msj.tipo === "visita";
+    var u = S.sesion();
+    var minimo = S.hoyLocal();
+
+    var agenda = !esVisita ? "" :
+      '<div class="pair">' +
+        '<div class="field' + (errores.dia ? " field--error" : "") + '">' +
+          '<label for="mj-dia">Día</label>' +
+          '<input id="mj-dia" name="dia" type="date" min="' + minimo + '" value="' + esc(v.dia || "") + '"' +
+            (errores.dia ? ' aria-invalid="true" aria-describedby="mj-dia-e"' : "") + '>' +
+          campoError("mj-dia", errores.dia) +
+        '</div>' +
+        '<div class="field' + (errores.hora ? " field--error" : "") + '">' +
+          '<label for="mj-hora">Horario</label>' +
+          '<select id="mj-hora" name="hora"' + (errores.hora ? ' aria-invalid="true" aria-describedby="mj-hora-e"' : "") + '>' +
+            '<option value="">Elige un horario</option>' +
+            S.HORARIOS.map(function (h) {
+              return '<option value="' + h.id + '"' + (v.hora === h.id ? " selected" : "") + '>' + esc(h.label) + "</option>";
+            }).join("") +
+          '</select>' +
+          campoError("mj-hora", errores.hora) +
+        '</div>' +
+      '</div>';
+
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">' + (esVisita ? "Solicitar una visita" : "Hablar con un asesor") + '</h2>' +
+      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+    '</div>' +
+    '<div class="sheet__body">' +
+      propLineaHTML(msj.slug) +
+      '<p class="lead" style="margin-top:16px">' + (esVisita
+        ? "Dinos cuándo te viene bien y lo confirmamos con el propietario."
+        : "Escríbenos y un asesor te responde con información verificable.") + '</p>' +
+      '<form id="mensaje-form" style="display:grid;gap:16px;margin-top:20px">' +
+        agenda +
+        '<div class="field' + (errores.texto ? " field--error" : "") + '">' +
+          '<label for="mj-texto">' + (esVisita ? "Algo que debamos saber (opcional)" : "Tu mensaje") + '</label>' +
+          '<textarea id="mj-texto" name="texto" rows="3" placeholder="' +
+            (esVisita ? "Voy con mi arquitecto, nos interesa ver el patio…" : "¿Se puede ampliar? ¿Cuál es el uso de suelo?") + '"' +
+            (errores.texto ? ' aria-invalid="true" aria-describedby="mj-texto-e"' : "") + '>' + esc(v.texto || "") + '</textarea>' +
+          campoError("mj-texto", errores.texto) +
+        '</div>' +
+        '<div class="field">' +
+          '<label for="mj-canal">¿Cómo prefieres que te contestemos?</label>' +
+          '<select id="mj-canal" name="canal">' +
+            S.CANALES.map(function (c) {
+              return '<option value="' + c.id + '"' + (v.canal === c.id ? " selected" : "") + '>' + esc(c.label) + "</option>";
+            }).join("") +
+          '</select>' +
+        '</div>' +
+      '</form>' +
+      '<p class="small msj__quien">Te buscaremos como <strong>' + esc(u.nombre) + '</strong> · ' +
+        esc(u.telefono) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>' +
+    '</div>' +
+    '<div class="sheet__foot">' +
+      '<button class="btn btn--link" data-action="sheet-close">Cancelar</button>' +
+      '<button class="btn btn--primary" data-action="mensaje-send">' +
+        (esVisita ? "Solicitar visita" : "Enviar mensaje") + '</button>' +
+    '</div>';
+  }
+
+  /* Confirmación explícita: decir qué pasó, cuándo responde alguien y dónde
+     seguirlo. Un toast que se va en dos segundos no alcanza para esto. */
+  function mensajeOkHTML(m) {
+    var esVisita = m.tipo === "visita";
+    return '' +
+    '<div class="sheet__head">' +
+      '<h2 id="sheet-title">' + (esVisita ? "Visita solicitada" : "Mensaje enviado") + '</h2>' +
+      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+    '</div>' +
+    '<div class="sheet__body">' +
+      '<p class="msj__ok">' + icon("check", 26) + '</p>' +
+      (esVisita
+        ? '<p class="lead">Pediste ver <strong>' + esc((propDe(m.slug) || {}).title || "la propiedad") +
+          '</strong> el <strong>' + esc(fechaLarga(m.dia)) + '</strong>, de ' + esc(horaLabel(m.hora)) + '.</p>' +
+          '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
+          'Todavía no está confirmada: lo revisamos con el propietario y te avisamos por ' +
+          esc(canalLabel(m.canal).toLowerCase()) + ' en menos de 24 horas hábiles.</p>'
+        : '<p class="lead">Tu mensaje llegó al equipo.</p>' +
+          '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
+          'Te respondemos por ' + esc(canalLabel(m.canal).toLowerCase()) +
+          ' en menos de 24 horas hábiles. La conversación queda guardada en tu perfil.</p>') +
+    '</div>' +
+    '<div class="sheet__foot">' +
+      '<button class="btn btn--link" data-action="sheet-close">Seguir viendo</button>' +
+      '<button class="btn btn--primary" data-action="ver-mensajes">Ver la conversación</button>' +
+    '</div>';
+  }
+
+  function pedirMensaje(tipo, slug) {
+    msj = { tipo: tipo, slug: slug || "" };
+    // Con la cuenta del equipo, escribirse a sí mismo abriría una ficha propia
+    // en el Kanban. Mejor decirlo que dejar entrar el dato sucio.
+    if (S.esAdmin()) {
+      toast("Estás con la cuenta del equipo. Esto es lo que ve un cliente.");
+      return;
+    }
+    if (!S.sesion()) {
+      pedirRegistro(tipo === "visita"
+        ? "Crea tu cuenta para agendar la visita: necesitamos cómo confirmártela."
+        : "Crea tu cuenta para escribirle al equipo: necesitamos cómo contestarte.",
+        function () { openSheet(mensajeHTML()); });
+      return;
+    }
+    openSheet(mensajeHTML());
+  }
+
+  function enviarMsj() {
+    var f = document.getElementById("mensaje-form");
+    if (!f) return;
+    var datos = {
+      tipo: msj.tipo, slug: msj.slug,
+      texto: f.texto.value, canal: f.canal.value,
+      dia: f.dia ? f.dia.value : "", hora: f.hora ? f.hora.value : ""
+    };
+    var r = S.enviarMensaje(datos);
+    if (!r.ok) { openSheet(mensajeHTML(r.errores, datos)); return; }
+    openSheet(mensajeOkHTML(r.mensaje));
+    render();
+  }
+
+  /* El cliente responde desde su perfil: el hilo es de ida y vuelta. */
+  function responderCliente() {
+    var ta = document.getElementById("chat-txt");
+    var txt = (ta && ta.value || "").trim();
+    if (!txt) { if (ta) ta.focus(); return; }
+    var r = S.enviarMensaje({ tipo: "contacto", slug: "", texto: txt, canal: "correo" });
+    if (!r.ok) { toast("Escribe un mensaje un poco más largo."); return; }
+    render();
+    toast("Mensaje enviado al equipo.");
+  }
+
+  function burbujasHTML(hilo) {
+    return '<ol class="chat">' + hilo.map(function (m) {
+      var mio = m.de === "cliente";
+      var p = m.slug ? propDe(m.slug) : null;
+      return '<li class="chat__msg chat__msg--' + (mio ? "propio" : "otro") + '">' +
+        '<div class="chat__burbuja">' +
+          (m.tipo === "visita"
+            ? '<p class="chat__cita">' + icon("calendar", 15) + 'Visita · ' + esc(fechaLarga(m.dia)) + ', ' + esc(horaLabel(m.hora)) + '</p>'
+            : "") +
+          (p ? '<p class="chat__sobre">' + esc(p.title) + '</p>' : "") +
+          (m.texto ? '<p>' + esc(m.texto) + '</p>' : "") +
+        '</div>' +
+        '<p class="chat__pie">' + (mio ? "Tú" : "Equipo Legato") + ' · ' + esc(fechaCorta(m.fecha)) + '</p>' +
+      '</li>';
+    }).join("") + '</ol>';
+  }
+
+  function fechaCorta(iso) {
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString("es-MX", { day: "2-digit", month: "short" }) + " · " +
+             d.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+    } catch (e) { return ""; }
   }
 
   /* ============================ eventos ============================ */
@@ -1353,7 +1578,7 @@
       case "sheet-close": closeSheet(); break;
       case "admin":
         closeDrawer(true);
-        if (S.sesion()) { state.perfilTab = S.esAdmin() ? "interesados" : "perfil"; go("perfil"); }
+        if (S.sesion()) { state.perfilTab = S.esAdmin() ? (S.sinLeer() ? "mensajes" : "interesados") : "perfil"; go("perfil"); }
         else pedirLogin();
         break;
       case "registro-submit": enviarRegistro(); break;
@@ -1427,8 +1652,23 @@
         compartir();
         break;
       }
-      case "contact": toast("Un asesor de Legato Capital te contactará para dar seguimiento."); break;
-      case "visita": toast("Agenda de visitas disponible en la siguiente fase."); break;
+      case "contact":
+        pedirMensaje("contacto", t.getAttribute("data-slug") || (state.screen === "detail" ? state.sel : ""));
+        break;
+      case "visita":
+        pedirMensaje("visita", t.getAttribute("data-slug") || (state.screen === "detail" ? state.sel : ""));
+        break;
+      case "mensaje-send": enviarMsj(); break;
+      case "chat-send": responderCliente(); break;
+      case "ver-mensajes":
+        closeSheet();
+        state.perfilTab = "perfil";
+        go("perfil");
+        setTimeout(function () {
+          var el = document.getElementById("mis-mensajes");
+          if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); }
+        }, 80);
+        break;
       case "save-search": toast("Búsqueda guardada."); break;
     }
   });
@@ -1439,6 +1679,7 @@
   var ACCION_PANEL = {
     "login-form": function () { return document.getElementById("lg-pass") ? "login-admin" : "login-next"; },
     "registro-form": function () { return "registro-submit"; },
+    "mensaje-form": function () { return "mensaje-send"; },
     "lead-form": function () { return "lead-save"; },
     "prop-form": function () { return "prop-save"; }
   };
@@ -1478,6 +1719,7 @@
     var boton = {
       "login-form": document.getElementById("lg-pass") ? "login-admin" : "login-next",
       "registro-form": "registro-submit",
+      "mensaje-form": "mensaje-send",
       "lead-form": "lead-save",
       "prop-form": "prop-save"
     }[cual];
