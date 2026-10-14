@@ -716,16 +716,18 @@
       '<section class="perfil__seccion" id="mis-mensajes" tabindex="-1">' +
         '<h2>Tus mensajes</h2>' +
         '<p class="perfil__nota">Lo que has pedido al equipo y lo que te han respondido.</p>' +
+        /* Con la sesión abierta se puede escribir cuando sea, haya hilo o no:
+           los datos de contacto ya están dados. */
         (hilo.length
-          ? burbujasHTML(hilo) +
-            '<div class="notafrm" style="margin-top:16px">' +
-              '<label class="sr-only" for="chat-txt">Escribir al equipo</label>' +
-              '<textarea id="chat-txt" rows="2" placeholder="Escribe al equipo…"></textarea>' +
-              '<button class="btn btn--primary btn--sm" data-action="chat-send">Enviar</button>' +
-            '</div>'
-          : '<div class="state" style="margin-top:24px"><h3>Todavía no has escrito al equipo.</h3>' +
-            '<p>Desde cualquier propiedad puedes pedir información o agendar una visita.</p>' +
-            '<button class="btn btn--primary" data-action="search">Ver propiedades</button></div>') +
+          ? burbujasHTML(hilo)
+          : '<p class="perfil__vacio">Todavía no hay mensajes. Escribe abajo y un asesor te responde, ' +
+            'o pide información desde cualquier propiedad.</p>') +
+        '<div class="notafrm" style="margin-top:16px">' +
+          '<label class="sr-only" for="chat-txt">Escribir al equipo</label>' +
+          '<textarea id="chat-txt" rows="2" placeholder="' +
+            (hilo.length ? "Escribe al equipo…" : "Cuéntanos qué buscas…") + '"></textarea>' +
+          '<button class="btn btn--primary btn--sm" data-action="chat-send">Enviar</button>' +
+        '</div>' +
       '</section>' +
 
       '<section class="perfil__seccion">' +

@@ -5,7 +5,7 @@
  * adivinar (nombre, correo, teléfono, el mensaje). Sirve para dos cosas:
  *
  *   1. crear la cuenta sin sacar a nadie de donde está, y
- *   2. abrir conversación con Jaime.
+ *   2. abrir conversación con un asesor.
  *
  * Lo que manda cae en el mismo sitio que el resto: Store.enviarMensaje, así
  * que aparece en la bandeja del equipo y en su ficha del Kanban. Aquí no hay
@@ -58,7 +58,7 @@
       opciones: function () {
         var o = [];
         if (!S().sesion()) o.push({ txt: "Crear mi cuenta", va: "alta_nombre" });
-        o.push({ txt: "Hablar con Jaime", va: "jaime" });
+        o.push({ txt: "Hablar con un asesor", va: "asesor" });
         o.push({ txt: "Agendar una visita", va: "visita" });
         o.push({ txt: "Solo estoy viendo", va: "mirar" });
         return o;
@@ -69,8 +69,8 @@
 
     alta_nombre: {
       dice: function () {
-        return datos.volverA === "jaime"
-          ? ["Para que Jaime te conteste necesito saber cómo localizarte. Son tres datos.",
+        return datos.volverA === "asesor"
+          ? ["Para que un asesor te conteste necesito saber cómo localizarte. Son tres datos.",
              "¿Cómo te llamas? Nombre y apellido."]
           : datos.volverA === "visita"
             ? ["Para apartar la visita necesito tus datos. Son tres.",
@@ -122,20 +122,20 @@
                 "Ya puedes guardar propiedades, ver las oportunidades de acceso anticipado y escribirle al equipo."];
       },
       opciones: [
-        { txt: "Hablar con Jaime", va: "jaime" },
+        { txt: "Hablar con un asesor", va: "asesor" },
         { txt: "Ver oportunidades", accion: "oportunidades" },
         { txt: "Gracias, eso era todo", va: "despedida" }
       ]
     },
 
-    /* ---------- conversación con Jaime ---------- */
+    /* ---------- conversación con un asesor ---------- */
 
-    jaime: {
+    asesor: {
       antes: function () {
-        if (!S().sesion()) { datos.volverA = "jaime"; return "alta_nombre"; }
+        if (!S().sesion()) { datos.volverA = "asesor"; return "alta_nombre"; }
         return null;
       },
-      dice: ["Jaime Lavín lleva la cartera en Legato. ¿De qué quieres hablarle?"],
+      dice: ["Te atiende un asesor patrimonial de Legato. ¿De qué quieres hablar?"],
       opciones: function () {
         var p = propiedadEnPantalla();
         var o = [];
@@ -233,6 +233,12 @@
           texto: [datos.tema, datos.texto].filter(Boolean).join(" — "),
           canal: datos.canal, dia: datos.dia || "", hora: datos.hora || ""
         });
+        /* Sin sesión no hay a quién contestarle: se piden los datos y se
+           vuelve aquí. Es la misma regla en todas las puertas del sitio. */
+        if (!r.ok && r.motivo === "sin-sesion") {
+          datos.volverA = "enviar";
+          return "alta_nombre";
+        }
         datos.enviado = !!r.ok;
         datos.falla = r.ok ? "" : (r.errores ? Object.keys(r.errores).map(function (k) { return r.errores[k]; })[0] : "");
         ui().render();
@@ -243,10 +249,10 @@
         var canal = S().CANALES.filter(function (c) { return c.id === datos.canal; })[0];
         return datos.dia
           ? ["Pedí la visita para el " + fechaLarga(datos.dia) + ".",
-             "Todavía no está confirmada: Jaime la revisa con el propietario y te avisa por " +
+             "Todavía no está confirmada: tu asesor la revisa con el propietario y te avisa por " +
              canal.label.toLowerCase() + " en menos de 24 horas hábiles."]
-          : ["Listo, se lo mandé a Jaime.",
-             "Te responde por " + canal.label.toLowerCase() + " en menos de 24 horas hábiles. La conversación te queda guardada en tu perfil."];
+          : ["Listo, tu mensaje ya está con el equipo.",
+             "Un asesor te responde por " + canal.label.toLowerCase() + " en menos de 24 horas hábiles. La conversación te queda guardada en tu perfil."];
       },
       opciones: function () {
         if (!datos.enviado) return [{ txt: "Intentar otra vez", va: "canal" }, { txt: "Mejor después", va: "despedida" }];
@@ -267,7 +273,7 @@
         { txt: "Casas", accion: "buscar", patch: { tipos: ["Casa"] } },
         { txt: "Terrenos", accion: "buscar", patch: { tipos: ["Terreno"] } },
         { txt: "Oportunidades", accion: "oportunidades" },
-        { txt: "Mejor hablar con Jaime", va: "jaime" }
+        { txt: "Mejor hablar con un asesor", va: "asesor" }
       ]
     },
 
@@ -395,7 +401,7 @@
       '<span class="avatar" aria-hidden="true"><img src="assets/logo-mark-white.png" alt=""></span>' +
       '<div class="bot__quien">' +
         '<h2 id="chat-title">Asistente de Legato</h2>' +
-        '<p>Respondo al instante · Jaime contesta en menos de 24 h</p>' +
+        '<p>Respondo al instante · Un asesor contesta en menos de 24 h</p>' +
       '</div>' +
       '<button class="icon-btn" data-bot="cerrar" aria-label="Cerrar el asistente">' + icon("close", 22) + '</button>' +
     '</div>';
@@ -455,7 +461,7 @@
 
   /* ============================== lanzador ============================== */
 
-  /* El botón no existe para la cuenta del equipo: Jaime no se escribe a sí mismo. */
+  /* El botón no existe para la cuenta del equipo: el asesor no se escribe a sí mismo. */
   function sincronizarBoton() {
     var b = document.getElementById("fab-chat");
     if (!b) return;

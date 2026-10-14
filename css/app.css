@@ -1137,3 +1137,4 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
   border-color: var(--action-accent); outline: none; box-shadow: 0 0 0 3px var(--focus-halo);
 }
 .bot__campo .telfield select { min-height: var(--target); }
+.perfil__vacio { margin-top: var(--space-md); font-size: var(--fs-small); color: var(--text-secondary); max-width: 54ch; }

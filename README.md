@@ -112,9 +112,13 @@ que nadie puede adivinar (nombre, correo, teléfono, el mensaje). Dos caminos:
 1. **Crear mi cuenta** — nombre, correo y teléfono con lada, uno por uno, validando en
    la propia conversación. Al terminar la sesión queda abierta y la cabecera se
    actualiza sin cerrar el asistente.
-2. **Hablar con Jaime** — sin cuenta la pide primero, explicando por qué, y al terminar
-   **retoma donde se quedó**. Si hay una propiedad en pantalla, la ofrece como tema sin
-   preguntar cuál. También agenda visitas, con el mismo día + bloque de dos horas.
+2. **Hablar con un asesor** — sin cuenta la pide primero, explicando por qué, y al
+   terminar **retoma donde se quedó**. Si hay una propiedad en pantalla, la ofrece como
+   tema sin preguntar cuál. También agenda visitas, con el mismo día + bloque de dos
+   horas.
+
+El guion **nunca nombra a Jaime**: quien llega no sabe quién es. Habla de *un asesor*;
+el nombre es el de la cuenta del equipo, no el de cara al cliente.
 
 Todo lo que manda sale por `Store.enviarMensaje`: **cae en la bandeja y en el Kanban**
 igual que si se hubiera escrito desde la ficha. El asistente no guarda nada propio y la
@@ -124,7 +128,21 @@ El guion vive en `PASOS`, dentro de `js/bot.js`. Cada paso declara qué dice, qu
 opciones da (`opciones`) o qué dato pide (`entrada`), y a qué paso salta. Agregar una
 pregunta es agregar una entrada a ese objeto.
 
-> Con la cuenta del equipo el botón no aparece: Jaime no se escribe a sí mismo.
+> Con la cuenta del equipo el botón no aparece: el asesor no se escribe a sí mismo.
+
+### La regla: sin datos de contacto no hay conversación
+
+**Para abrir una conversación hay que dejar cómo contestarte; con la sesión abierta se
+puede escribir cuando sea, desde donde sea.** Rige en las seis puertas —*Contactar* de
+la ficha y de la barra del teléfono, *Agendar visita*, *Hablar con un asesor* de la
+portada, y los dos caminos del asistente— y además en `js/store.js`: `enviarMensaje`
+devuelve `sin-sesion` y no escribe nada, así que la regla no depende de que la pantalla
+la respete.
+
+Con sesión no vuelve a preguntar nada: se escribe desde la ficha, desde la portada, desde
+el asistente en cualquier pantalla, y desde **Tus mensajes** en el perfil —ahí el campo
+está siempre, haya hilo o no, para poder empezar uno. Si la sesión se cae a media
+conversación, el asistente pide los datos y retoma en el punto donde iba.
 
 ### Teléfono con lada
 
