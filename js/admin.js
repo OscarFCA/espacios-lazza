@@ -275,6 +275,126 @@
     '</div>';
   }
 
+  /* ========================== disponibilidad ========================== */
+  /* La agenda del equipo manda sobre lo que el cliente puede elegir al pedir
+     una visita: lo que no esté marcado aquí, allá no aparece. */
+
+  var borradorAgenda = null;
+
+  function agendaBorrador() {
+    if (!borradorAgenda) {
+      borradorAgenda = {};
+      var a = window.Store.agenda();
+      window.Store.DIAS.forEach(function (d) { borradorAgenda[d.id] = (a[d.id] || []).slice(); });
+    }
+    return borradorAgenda;
+  }
+
+  /* El botón de guardar refleja si el borrador difiere de lo guardado. */
+  function pintarGuardarAgenda() {
+    var b = document.querySelector('[data-action="agenda-save"]');
+    if (!b) return;
+    var sucio = JSON.stringify(normalizar(agendaBorrador())) !== JSON.stringify(normalizar(window.Store.agenda()));
+    b.disabled = !sucio;
+    b.textContent = sucio ? "Guardar horarios" : "Sin cambios";
+  }
+  /* Comparar sin que el orden de los bloques cuente como un cambio. */
+  function normalizar(a) {
+    var out = {};
+    window.Store.DIAS.forEach(function (d) {
+      out[d.id] = ((a && a[d.id]) || []).slice().sort();
+    });
+    return out;
+  }
+
+  function vistaDisponibilidad() {
+    var S = window.Store;
+    var a = agendaBorrador();
+    var sucio = JSON.stringify(normalizar(a)) !== JSON.stringify(normalizar(S.agenda()));
+
+    var rejilla = '<div class="agenda">' +
+      '<div class="agenda__fila agenda__fila--head">' +
+        '<span></span>' + S.HORARIOS.map(function (h) {
+          return '<span class="agenda__hora">' + esc(h.label) + '</span>';
+        }).join("") +
+      '</div>' +
+      S.DIAS.slice(1).concat([S.DIAS[0]]).map(function (d) {
+        var ids = a[d.id] || [];
+        return '<div class="agenda__fila">' +
+          '<span class="agenda__dia">' + esc(d.label) + '</span>' +
+          S.HORARIOS.map(function (h) {
+            var on = ids.indexOf(h.id) >= 0;
+            return '<button type="button" class="agenda__celda' + (on ? " is-on" : "") + '" ' +
+              'data-action="agenda-toggle" data-dia="' + d.id + '" data-hora="' + h.id + '" ' +
+              'aria-pressed="' + on + '">' +
+              '<span class="sr-only">' + esc(d.label + ", " + h.label) + '</span>' +
+              (on ? icon("check", 15) : "") + '</button>';
+          }).join("") +
+        '</div>';
+      }).join("") +
+    '</div>';
+
+    return '<section class="admin-seccion">' +
+      '<div class="admin-bar">' +
+        '<div><h2 class="admin-seccion__t">Horarios de visita</h2>' +
+          '<p class="small" style="color:var(--text-secondary)">Marca cuándo pueden agendarse visitas. ' +
+          'Lo que apagues aquí deja de aparecerle al cliente.</p></div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button class="btn btn--quiet btn--sm" data-action="agenda-reset">Restablecer</button>' +
+          '<button class="btn btn--primary btn--sm" data-action="agenda-save"' + (sucio ? "" : " disabled") + '>' +
+            (sucio ? "Guardar horarios" : "Sin cambios") + '</button>' +
+        '</div>' +
+      '</div>' +
+      rejilla +
+      '<p class="agenda__resumen">' + icon("clock", 15) + esc(S.agendaEnPalabras()) + '</p>' +
+    '</section>' +
+    vistaGoogle();
+  }
+
+  function vistaGoogle() {
+    var S = window.Store;
+    var g = S.google();
+    var listo = window.GoogleCal.configurado();
+
+    /* Una conexión guardada es un hecho: se muestra aunque falte el ID, para
+       poder al menos desconectarla. */
+    var cuerpo;
+    if (!listo && !g) {
+      cuerpo = '<div class="gcal__aviso">' +
+        '<p><strong>Falta configurar el acceso a Google.</strong> Es un trámite de una sola vez:</p>' +
+        '<ol class="gcal__pasos">' + window.GoogleCal.instrucciones.map(function (t) {
+          return "<li>" + esc(t) + "</li>";
+        }).join("") + '</ol>' +
+      '</div>';
+    } else if (!g) {
+      cuerpo = '<p class="small" style="color:var(--text-secondary)">Ningún calendario conectado. ' +
+        'Al conectar uno, cada visita que confirmes se escribe ahí.</p>' +
+        '<button class="btn btn--primary btn--sm" data-action="google-conectar">Conectar calendario</button>';
+    } else {
+      cuerpo = '<div class="gcal__estado">' +
+        '<p class="gcal__cuenta">' + icon("check", 16) + esc(g.cuenta) + '</p>' +
+        (listo ? "" : '<p class="field__error">' + icon("alert", 16) +
+          'Falta el ID de cliente en js/google.js: la conexión quedó guardada pero no puede escribir.</p>') +
+        '<div class="field"><label for="gc-cal">Calendario donde se escriben las visitas</label>' +
+          '<select id="gc-cal" data-action="google-calendario">' +
+            (g.calendarios || [{ id: g.calendario, nombre: g.calendarioNombre }]).map(function (c) {
+              return '<option value="' + esc(c.id) + '"' + (c.id === g.calendario ? " selected" : "") + '>' +
+                esc(c.nombre || c.id) + "</option>";
+            }).join("") +
+          '</select></div>' +
+        '<p class="small" style="color:var(--text-secondary)">Conectado el ' + esc(fecha(g.desde)) + '.</p>' +
+        '<button class="btn btn--quiet btn--sm" data-action="google-desconectar">Desconectar</button>' +
+      '</div>';
+    }
+
+    return '<section class="admin-seccion">' +
+      '<h2 class="admin-seccion__t">Google Calendar</h2>' +
+      '<p class="small" style="color:var(--text-secondary);margin-bottom:12px">' +
+        'Conecta una cuenta de Google para que las visitas confirmadas aparezcan en su calendario.</p>' +
+      cuerpo +
+    '</section>';
+  }
+
   /* ============================== bandeja ============================= */
   /* Una fila por cliente, no por mensaje: tres peticiones de la misma persona
      siguen siendo una conversación. Es el Kanban ordenado por lo último que
@@ -474,6 +594,7 @@
 
   /* Secciones que el perfil monta en sus pestañas (solo con bandera de admin). */
   function panel(seccion) {
+    if (seccion === "disponibilidad") return vistaDisponibilidad();
     if (seccion === "mensajes") return vistaBandeja();
     if (seccion === "propiedades") return vistaPropiedades();
     if (seccion === "actividad") return vistaActividad();
@@ -542,6 +663,54 @@
         }
         return true;
 
+      case "agenda-toggle": {
+        /* Se toca la celda, no se redibuja el panel: marcar varias seguidas
+           perdía todas menos la primera porque el re-render las desprendía. */
+        var a = agendaBorrador();
+        var d = target.getAttribute("data-dia"), h = target.getAttribute("data-hora");
+        var on = (a[d] || []).indexOf(h) >= 0;
+        a[d] = on ? a[d].filter(function (x) { return x !== h; }) : (a[d] || []).concat([h]);
+        target.classList.toggle("is-on", !on);
+        target.setAttribute("aria-pressed", String(!on));
+        var etiqueta = target.querySelector(".sr-only");
+        target.innerHTML = (etiqueta ? etiqueta.outerHTML : "") + (!on ? icon("check", 15) : "");
+        pintarGuardarAgenda();
+        return true;
+      }
+      case "agenda-save":
+        S.guardarAgenda(agendaBorrador());
+        borradorAgenda = null;
+        ui().toast("Horarios guardados.");
+        ui().render();
+        return true;
+      case "agenda-reset":
+        borradorAgenda = null;
+        agendaBorrador();
+        ui().render();
+        return true;
+
+      case "google-conectar": {
+        var btn = target;
+        btn.disabled = true;
+        btn.textContent = "Abriendo Google…";
+        window.GoogleCal.conectar().then(function (g) {
+          ui().toast("Calendario conectado: " + g.cuenta + ".");
+          ui().render();
+        }).catch(function (e) {
+          ui().toast(e.message || "No se pudo conectar con Google.");
+          ui().render();
+        });
+        return true;
+      }
+      case "google-desconectar":
+        if (confirm("Las visitas que confirmes dejarán de escribirse en ese calendario. ¿Desconectar?")) {
+          window.GoogleCal.desconectar().then(function () {
+            ui().toast("Calendario desconectado.");
+            ui().render();
+          });
+        }
+        return true;
+
       case "msj-filtro":
         filtroMsj = target.getAttribute("data-filtro");
         ui().render();
@@ -572,6 +741,7 @@
           "Visita confirmada para el " + fechaDia(m.dia) + ", de " + horaLabel(m.hora) + ". Te esperamos.");
         abrirFicha(m.leadId);
         ui().toast("Visita confirmada. La ficha pasó a Visita agendada.");
+        escribirEnCalendario(m);
         return true;
       }
 
@@ -692,6 +862,28 @@
     return true;
   }
 
+  /* Si hay calendario conectado, la visita confirmada se escribe ahí. Si falla,
+     se dice: una cita que el equipo cree agendada y no está es peor que un error. */
+  function escribirEnCalendario(m) {
+    var S = window.Store;
+    if (!S.google() || !window.GoogleCal.configurado()) return;
+    var l = S.lead(m.leadId);
+    var p = S.catalogoCompleto().filter(function (x) { return x.slug === m.slug; })[0];
+    var horas = String(m.hora).split("-");
+    var zona = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Mexico_City";
+    var hhmm = function (h) { return m.dia + "T" + String(h).padStart(2, "0") + ":00:00"; };
+    window.GoogleCal.agendarVisita({
+      titulo: "Visita · " + (p ? p.title : "propiedad") + " · " + (l ? l.nombre : ""),
+      detalle: [l && l.nombre, l && S.telMostrar(l), l && l.correo, m.texto].filter(Boolean).join("\n"),
+      lugar: p ? p.zona : "",
+      inicio: hhmm(horas[0]), fin: hhmm(horas[1]), zona: zona
+    }).then(function () {
+      ui().toast("Visita escrita en Google Calendar.");
+    }).catch(function (e) {
+      ui().toast("No se escribió en Google Calendar: " + (e.message || "falló la conexión") + ".");
+    });
+  }
+
   /* Conserva lo escrito en la ficha cuando la bitácora obliga a re-dibujar. */
   function guardarCamposFicha(idl) {
     var f = document.getElementById("lead-form");
@@ -765,6 +957,12 @@
       ui().render();
     });
     document.addEventListener("change", function (e) {
+      if (e.target && e.target.id === "gc-cal") {
+        var opt = e.target.options[e.target.selectedIndex];
+        window.Store.guardarGoogle({ calendario: e.target.value, calendarioNombre: opt.text });
+        ui().toast("Las visitas se escribirán en " + opt.text + ".");
+        return;
+      }
       var sel = e.target;
       if (!sel.hasAttribute || !sel.hasAttribute("data-move")) return;
       window.Store.moverLead(sel.getAttribute("data-move"), sel.value);

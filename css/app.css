@@ -1176,3 +1176,55 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
   background: var(--action-neutral); border-color: var(--action-neutral);
 }
 .fab--wa:hover { background: var(--action-neutral-hover); }
+
+/* ---------- Disponibilidad del equipo ---------- */
+.admin-seccion { padding-bottom: var(--space-2xl); }
+.admin-seccion + .admin-seccion { padding-top: var(--space-xl); border-top: 1px solid var(--border-default); }
+.admin-seccion__t { font-size: var(--fs-h4); font-weight: 600; letter-spacing: 0; }
+
+.agenda {
+  display: grid; gap: 4px; overflow-x: auto; padding-bottom: var(--space-xs);
+  border: 1px solid var(--border-default); border-radius: var(--radius-xl);
+  background: var(--bg-surface); padding: var(--space-sm);
+}
+.agenda__fila { display: grid; grid-template-columns: 96px repeat(5, minmax(84px, 1fr)); gap: 4px; align-items: center; }
+.agenda__fila--head { position: sticky; top: 0; }
+.agenda__hora, .agenda__dia {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--text-secondary);
+  text-align: center; padding: 4px 0;
+}
+.agenda__dia { text-align: left; color: var(--text-primary); font-size: var(--fs-small); }
+.agenda__celda {
+  min-height: var(--target); display: flex; align-items: center; justify-content: center;
+  background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  color: var(--text-inverse);
+  transition: background var(--duration-hover) var(--ease), border-color var(--duration-hover) var(--ease);
+}
+.agenda__celda:hover { border-color: var(--color-warm-gray); }
+.agenda__celda.is-on { background: var(--action-primary); border-color: var(--action-primary); }
+.agenda__resumen {
+  display: flex; align-items: center; gap: 6px; margin-top: var(--space-md);
+  font-size: var(--fs-small); color: var(--text-on-soft);
+}
+
+/* ---------- Google Calendar ---------- */
+.gcal__aviso {
+  background: var(--bg-soft); border-radius: var(--radius-lg); padding: var(--space-md);
+  font-size: var(--fs-small); line-height: 1.55;
+}
+.gcal__pasos { margin: var(--space-xs) 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-on-sand); }
+.gcal__estado { display: grid; gap: var(--space-sm); justify-items: start; max-width: 420px; }
+.gcal__cuenta {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px 4px 8px; border-radius: var(--radius-pill);
+  background: rgba(104,122,88,.14); color: var(--action-primary);
+  font-size: var(--fs-small); font-weight: 600;
+}
+.gcal__estado .field { width: 100%; }
+.msj__agenda { display: flex; align-items: center; gap: 6px; margin-top: var(--space-xs); color: var(--text-secondary); }
+
+/* Un elemento `position:absolute` sin ancestro posicionado cuelga del documento,
+   no del contenedor que lo scrollea. Dentro de una tira horizontal eso arrastra
+   la página entera: así se desbordaba el Kanban en el teléfono. Posicionar los
+   scrollers los convierte en bloque contenedor y los contiene. */
+.kanban, .agenda, .tabsnav, .scroller, .chiprow, .chat--admin, .bot__body { position: relative; }

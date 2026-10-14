@@ -330,7 +330,7 @@
     if (path.indexOf("#/perfil") === 0) {
       if (!S.sesion()) { state.screen = "oportunidades"; render(); pedirLogin(); return; }
       var t = path.slice("#/perfil".length).replace(/^\//, "");
-      var validas = ["mensajes", "interesados", "propiedades", "actividad"];
+      var validas = tabsVisibles().map(function (x) { return x.id; });
       state.perfilTab = (S.esAdmin() && validas.indexOf(t) >= 0) ? t : "perfil";
       state.screen = "perfil";
       render();
@@ -339,7 +339,7 @@
 
     // El panel dejó de ser pantalla aparte: vive en las pestañas del perfil.
     if (path.indexOf("#/admin") === 0) {
-      if (S.esAdmin()) { location.replace("#/perfil/" + (S.sinLeer() ? "mensajes" : "interesados")); return; }
+      if (S.esAdmin()) { location.replace("#/perfil/interesados"); return; }
       history.replaceState(null, "", "#/");
       state.screen = "home";
       render();
@@ -657,18 +657,23 @@
 
   /* ---------- Perfil ---------- */
 
+  /* La bandeja está oculta: hoy el canal con el cliente es WhatsApp. El código
+     sigue entero —la conversación se ve en la ficha de cada interesado—; para
+     devolver la pestaña, pon `oculta: false`. */
   var TABS_ADMIN = [
-    { id: "mensajes", label: "Mensajes" },
+    { id: "mensajes", label: "Mensajes", oculta: true },
     { id: "interesados", label: "Interesados" },
     { id: "propiedades", label: "Propiedades" },
+    { id: "disponibilidad", label: "Disponibilidad" },
     { id: "actividad", label: "Actividad" }
   ];
+  function tabsVisibles() { return TABS_ADMIN.filter(function (t) { return !t.oculta; }); }
 
   /* La barra de pestañas solo existe si la cuenta trae bandera de equipo. */
   function tabsPerfil() {
     if (!S.esAdmin()) return "";
     var c = window.Admin.conteos();
-    var tabs = [{ id: "perfil", label: "Mi perfil", n: null }].concat(TABS_ADMIN.map(function (t) {
+    var tabs = [{ id: "perfil", label: "Mi perfil", n: null }].concat(tabsVisibles().map(function (t) {
       return { id: t.id, label: t.label, n: c[t.id] };
     }));
     return '<nav class="tabsnav" aria-label="Secciones de tu cuenta">' + tabs.map(function (t) {
@@ -676,8 +681,7 @@
       return '<button data-action="perfil-tab" data-tab="' + t.id + '"' + (on ? ' aria-current="page"' : "") + '>' +
         esc(t.label) + (t.n != null ? '<span class="tabsnav__n">' + t.n + "</span>" : "") + "</button>";
     }).join("") +
-      (c.sinLeer ? '<span class="tabsnav__hint">' + c.sinLeer + (c.sinLeer === 1 ? ' mensaje sin leer' : ' mensajes sin leer') + '</span>'
-        : c.visitas ? '<span class="tabsnav__hint">' + c.visitas + (c.visitas === 1 ? ' visita por confirmar' : ' visitas por confirmar') + '</span>'
+      (c.visitas ? '<span class="tabsnav__hint">' + c.visitas + (c.visitas === 1 ? ' visita por confirmar' : ' visitas por confirmar') + '</span>'
         : c.nuevos ? '<span class="tabsnav__hint">' + c.nuevos + ' sin contactar</span>' : "") +
     '</nav>';
   }
@@ -897,7 +901,7 @@
     pintarWhatsApp();
 
     var dot = document.getElementById("avatar-dot");
-    if (dot) dot.hidden = S.esAdmin() ? !S.sinLeer() : !(u && S.oportunidades().length);
+    if (dot) dot.hidden = S.esAdmin() ? !S.mensajes().filter(function (m) { return m.tipo === "visita" && !m.confirmada; }).length : !(u && S.oportunidades().length);
 
     var items = navItems();
     var desktop = items.map(function (n) {
@@ -1320,7 +1324,7 @@
       if (!res.ok) { openSheet(loginHTML(2, "password")); return; }
       closeSheet();
       toast("Sesión de administrador iniciada.");
-      state.perfilTab = S.sinLeer() ? "mensajes" : "interesados";
+      state.perfilTab = "interesados";
       go("perfil");
     });
   }
@@ -1395,6 +1399,8 @@
     var u = S.sesion();
     var minimo = S.hoyLocal();
 
+    var bloques = S.bloquesDe(v.dia || "");
+    var cerrado = !!v.dia && !S.diaAbierto(v.dia);
     var agenda = !esVisita ? "" :
       '<div class="pair">' +
         '<div class="field' + (errores.dia ? " field--error" : "") + '">' +
@@ -1405,9 +1411,10 @@
         '</div>' +
         '<div class="field' + (errores.hora ? " field--error" : "") + '">' +
           '<label for="mj-hora">Horario</label>' +
-          '<select id="mj-hora" name="hora"' + (errores.hora ? ' aria-invalid="true" aria-describedby="mj-hora-e"' : "") + '>' +
-            '<option value="">Elige un horario</option>' +
-            S.HORARIOS.map(function (h) {
+          '<select id="mj-hora" name="hora"' + (cerrado ? " disabled" : "") +
+            (errores.hora ? ' aria-invalid="true" aria-describedby="mj-hora-e"' : "") + '>' +
+            '<option value="">' + (cerrado ? "Ese día no hay visitas" : "Elige un horario") + '</option>' +
+            bloques.map(function (h) {
               return '<option value="' + h.id + '"' + (v.hora === h.id ? " selected" : "") + '>' + esc(h.label) + "</option>";
             }).join("") +
           '</select>' +
@@ -1425,6 +1432,7 @@
       '<p class="lead" style="margin-top:16px">' + (esVisita
         ? "Dinos cuándo te viene bien y lo confirmamos con el propietario."
         : "Escríbenos y un asesor te responde con información verificable.") + '</p>' +
+      (esVisita ? '<p class="small msj__agenda">' + icon("clock", 15) + esc(S.agendaEnPalabras()) + '</p>' : "") +
       '<form id="mensaje-form" style="display:grid;gap:16px;margin-top:20px">' +
         agenda +
         '<div class="field' + (errores.texto ? " field--error" : "") + '">' +
@@ -1503,6 +1511,20 @@
     '</div>';
   }
 
+  /* Cambiar el día cambia qué horarios existen: la agenda del equipo manda. */
+  function ligarAgenda() {
+    var dia = document.getElementById("mj-dia");
+    var hora = document.getElementById("mj-hora");
+    if (!dia || !hora) return;
+    dia.addEventListener("change", function () {
+      var bloques = S.bloquesDe(dia.value);
+      var cerrado = !!dia.value && !bloques.length;
+      hora.disabled = cerrado;
+      hora.innerHTML = '<option value="">' + (cerrado ? "Ese día no hay visitas" : "Elige un horario") + "</option>" +
+        bloques.map(function (h) { return '<option value="' + h.id + '">' + esc(h.label) + "</option>"; }).join("");
+    });
+  }
+
   function pedirMensaje(tipo, slug) {
     msj = { tipo: tipo, slug: slug || "" };
     // Con la cuenta del equipo, escribirse a sí mismo abriría una ficha propia
@@ -1515,11 +1537,13 @@
       pedirRegistro(tipo === "visita"
         ? "Crea tu cuenta para agendar la visita: necesitamos cómo confirmártela."
         : "Crea tu cuenta para escribirle al equipo: necesitamos cómo contestarte.",
-        function () { openSheet(mensajeHTML(), function () { ligarPais("mj-wa"); }); });
+        function () { openSheet(mensajeHTML(), montarMensaje); });
       return;
     }
-    openSheet(mensajeHTML(), function () { ligarPais("mj-wa"); });
+    openSheet(mensajeHTML(), montarMensaje);
   }
+
+  function montarMensaje() { ligarPais("mj-wa"); ligarAgenda(); }
 
   function enviarMsj() {
     var f = document.getElementById("mensaje-form");
@@ -1532,10 +1556,10 @@
     };
     if (f.whatsapp) {
       var w = S.guardarWhatsApp(datos.whatsapp, datos.paisWa);
-      if (!w.ok) { openSheet(mensajeHTML({ whatsapp: w.error }, datos), function () { ligarPais("mj-wa"); }); return; }
+      if (!w.ok) { openSheet(mensajeHTML({ whatsapp: w.error }, datos), montarMensaje); return; }
     }
     var r = S.enviarMensaje(datos);
-    if (!r.ok) { openSheet(mensajeHTML(r.errores, datos), function () { ligarPais("mj-wa"); }); return; }
+    if (!r.ok) { openSheet(mensajeHTML(r.errores, datos), montarMensaje); return; }
     openSheet(mensajeOkHTML(r.mensaje));
     render();
   }
@@ -1658,7 +1682,7 @@
       case "sheet-close": closeSheet(); break;
       case "admin":
         closeDrawer(true);
-        if (S.sesion()) { state.perfilTab = S.esAdmin() ? (S.sinLeer() ? "mensajes" : "interesados") : "perfil"; go("perfil"); }
+        if (S.sesion()) { state.perfilTab = S.esAdmin() ? "interesados" : "perfil"; go("perfil"); }
         else pedirLogin();
         break;
       case "registro-submit": enviarRegistro(); break;

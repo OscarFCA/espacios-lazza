@@ -91,8 +91,32 @@
   ];
   var PAIS_DEF = "MX";
 
+  /* Días de la semana en el orden de getDay(): 0 es domingo. */
+  var DIAS = [
+    { id: 0, label: "Domingo", corto: "Dom" },
+    { id: 1, label: "Lunes",   corto: "Lun" },
+    { id: 2, label: "Martes",  corto: "Mar" },
+    { id: 3, label: "Miércoles", corto: "Mié" },
+    { id: 4, label: "Jueves",  corto: "Jue" },
+    { id: 5, label: "Viernes", corto: "Vie" },
+    { id: 6, label: "Sábado",  corto: "Sáb" }
+  ];
+
+  /* Disponibilidad para visitas. Lo que el equipo no marca aquí, el cliente no
+     puede elegir allá: la agenda es una sola. */
+  function agendaDefault() {
+    var a = {};
+    DIAS.forEach(function (d) {
+      a[d.id] = (d.id >= 1 && d.id <= 5) ? HORARIOS.map(function (h) { return h.id; })
+              : d.id === 6 ? ["09-11", "11-13"]
+              : [];
+    });
+    return a;
+  }
+
   function vacio() {
-    return { usuarios: [], sesion: null, admin: false, leads: [], mensajes: [], actividad: [], propiedades: [], seed: false };
+    return { usuarios: [], sesion: null, admin: false, leads: [], mensajes: [], actividad: [],
+             propiedades: [], agenda: null, google: null, seed: false };
   }
 
   var db = load();
@@ -115,6 +139,7 @@
     asegurarAdmin(d);
     asegurarDemo(d);
     /* El teléfono no llevaba país. Todo lo que ya existía es de México. */
+    if (!d.agenda) d.agenda = agendaDefault();
     (d.usuarios || []).forEach(function (u) { if (!u.pais) u.pais = PAIS_DEF; });
     (d.leads || []).forEach(function (l) { if (!l.pais) l.pais = PAIS_DEF; });
     (d.leads || []).forEach(function (l) {
@@ -295,6 +320,7 @@
     });
     asegurarAdmin(d);
     asegurarDemo(d);
+    d.agenda = agendaDefault();
     d.seed = true;
     return d;
   }
@@ -595,7 +621,10 @@
     if (esVisita) {
       if (!d.dia) err.dia = "Elige el día que te viene bien.";
       else if (d.dia < hoyLocal()) err.dia = "Esa fecha ya pasó. Elige una a partir de hoy.";
+      else if (!diaAbierto(d.dia)) err.dia = "Ese día no hay visitas. Elige otro.";
       if (!d.hora) err.hora = "Elige un horario.";
+      else if (d.dia && diaAbierto(d.dia) && !bloquesDe(d.dia).some(function (h) { return h.id === d.hora; }))
+        err.hora = "Ese horario no está disponible ese día.";
     } else if (String(d.texto || "").trim().length < 4) {
       err.texto = "Cuéntanos qué necesitas saber.";
     }
@@ -689,6 +718,71 @@
     var u = sesion();
     if (!u) return { ok: false };
     return guardarWhatsApp(u.telefono, u.pais);
+  }
+
+  /* --------------------------- agenda --------------------------- */
+
+  function agenda() {
+    if (!db.agenda) db.agenda = agendaDefault();
+    return db.agenda;
+  }
+  function guardarAgenda(nueva) {
+    var limpia = {};
+    DIAS.forEach(function (d) {
+      var v = (nueva && nueva[d.id]) || [];
+      limpia[d.id] = HORARIOS.filter(function (h) { return v.indexOf(h.id) >= 0; })
+                             .map(function (h) { return h.id; });
+    });
+    db.agenda = limpia;
+    save();
+    return limpia;
+  }
+
+  /* El día llega como AAAA-MM-DD; se lee en local para no correrlo de zona. */
+  function diaSemana(iso) {
+    var p = String(iso).split("-");
+    return new Date(p[0], Number(p[1]) - 1, p[2]).getDay();
+  }
+  function bloquesDe(iso) {
+    if (!iso) return HORARIOS.slice();
+    var ids = agenda()[diaSemana(iso)] || [];
+    return HORARIOS.filter(function (h) { return ids.indexOf(h.id) >= 0; });
+  }
+  function diaAbierto(iso) { return bloquesDe(iso).length > 0; }
+
+  /* Frase corta para explicarle al cliente cuándo se puede visitar. */
+  function agendaEnPalabras() {
+    var a = agenda();
+    var tramos = [], actual = null;
+    DIAS.slice(1).concat([DIAS[0]]).forEach(function (d) {
+      var clave = (a[d.id] || []).join(",");
+      if (actual && actual.clave === clave) { actual.fin = d; return; }
+      actual = { clave: clave, ini: d, fin: d, ids: a[d.id] || [] };
+      tramos.push(actual);
+    });
+    var vivos = tramos.filter(function (t) { return t.ids.length; });
+    if (!vivos.length) return "Sin horarios de visita configurados.";
+    return vivos.map(function (t) {
+      var dias = t.ini.id === t.fin.id ? t.ini.label : t.ini.label + " a " + t.fin.label;
+      var hs = HORARIOS.filter(function (h) { return t.ids.indexOf(h.id) >= 0; });
+      var desde = hs[0].label.split(" a ")[0];
+      var hasta = hs[hs.length - 1].label.split(" a ")[1];
+      return dias + " de " + desde + " a " + hasta;
+    }).join(" · ");
+  }
+
+  /* ------------------------ Google Calendar ------------------------ */
+  /* Solo el estado de la conexión; el OAuth vive en js/google.js. El token de
+     acceso NO se guarda: vive en memoria y se vuelve a pedir al recargar. */
+  function google() { return db.google || null; }
+  function guardarGoogle(datos) {
+    db.google = Object.assign({}, db.google, datos);
+    save();
+    return db.google;
+  }
+  function desconectarGoogle() {
+    db.google = null;
+    save();
   }
 
   /* ------------------- aviso directo al equipo ------------------- */
@@ -863,7 +957,10 @@
   }
 
   window.Store = {
-    ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF,
+    ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF, DIAS: DIAS,
+    agenda: agenda, guardarAgenda: guardarAgenda, bloquesDe: bloquesDe, diaAbierto: diaAbierto,
+    agendaEnPalabras: agendaEnPalabras, agendaDefault: agendaDefault,
+    google: google, guardarGoogle: guardarGoogle, desconectarGoogle: desconectarGoogle,
     hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
     waMostrar: waMostrar, waPropio: waPropio, tieneWhatsApp: tieneWhatsApp,
     enlaceWaEquipo: enlaceWaEquipo, enlaceWaDirecto: enlaceWaDirecto, whatsappEquipo: whatsappEquipo,

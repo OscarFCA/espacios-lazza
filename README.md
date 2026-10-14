@@ -46,12 +46,44 @@ bandera de equipo ve en `#/perfil` una barra con *Mi perfil · Mensajes · Inter
 Propiedades · Actividad*; sin la bandera esa barra no existe, y forzar
 `#/perfil/interesados` por URL no muestra nada del panel.
 
-- **Mensajes**: la bandeja de entrada, con lo que llega por la ficha y por el asistente. Una fila por cliente, ordenada por lo último
+- **Interesados**: Kanban de 6 etapas; la conversación de cada quien vive en su ficha. Una fila por cliente, ordenada por lo último
   que pasó, con filtros *Todas · Sin leer · Visitas por confirmar*.
-- **Interesados**: Kanban de 6 etapas (Nuevo · Contactado · Visita agendada ·
-  Negociación · Cerrado · Descartado).
 - **Propiedades**: alta, edición, retiro y fotos.
+- **Disponibilidad**: horarios de visita y conexión con Google Calendar.
 - **Actividad**: quién guardó, compartió, escribió o pidió visita, con fecha.
+
+> La pestaña **Mensajes** (la bandeja de entrada) está **oculta**: hoy el canal con el
+> cliente es WhatsApp. El código sigue entero y la conversación de cada persona se ve en
+> su ficha del Kanban; para devolver la pestaña, pon `oculta: false` en `TABS_ADMIN`
+> dentro de `js/app.js`.
+
+### Disponibilidad
+
+Una rejilla de siete días por cinco bloques de dos horas. **Lo que el equipo apaga aquí
+deja de existir allá**: el panel de visitas del cliente solo ofrece los bloques abiertos
+del día que elija, un día cerrado desactiva el selector, y `validarMensaje` lo rechaza
+también en la capa de datos —no depende de que la pantalla lo respete.
+
+Arranca en lunes a viernes completos y sábado de 9 a 13. El resumen en palabras
+(«Lunes a Viernes de 9:00 a 19:00 · Sábado de 9:00 a 13:00») se calcula solo y es el
+mismo que lee el cliente.
+
+### Google Calendar
+
+Conexión real, con el flujo de token de Google Identity Services: un `client_id`
+público (no hay secreto que esconder) y Google restringe su uso al origen registrado.
+Conectar trae los calendarios donde la cuenta puede escribir; **cada visita que el
+equipo confirme se escribe en el elegido**, con el nombre, teléfono y correo del
+interesado en la descripción.
+
+El script de Google **solo se carga al usarlo**: nadie que entre a ver una casa carga a
+Google. El token de acceso no se guarda —vive en memoria y se vuelve a pedir en
+silencio—; lo que se guarda es a qué cuenta y a qué calendario quedó conectado.
+
+Falta un trámite de una sola vez para encenderlo (proyecto en Google Cloud, pantalla de
+consentimiento, ID de cliente). Mientras no esté, el panel **dice exactamente qué falta**
+en lugar de ofrecer un botón que no haría nada. Los pasos están en la cabecera de
+`js/google.js`.
 
 Cada pestaña tiene su URL (`#/perfil/interesados`), así que el botón atrás las recorre.
 `#/admin` sigue funcionando: redirige a la pestaña del tablero.
