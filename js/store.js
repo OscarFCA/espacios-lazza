@@ -749,6 +749,12 @@
     return HORARIOS.filter(function (h) { return ids.indexOf(h.id) >= 0; });
   }
   function diaAbierto(iso) { return bloquesDe(iso).length > 0; }
+  /* ¿Queda algún bloque abierto en toda la semana? Si no, no hay visitas que
+     pedir y el sitio deja de ofrecerlas. */
+  function agendaAbierta() {
+    var a = agenda();
+    return DIAS.some(function (d) { return (a[d.id] || []).length > 0; });
+  }
 
   /* Frase corta para explicarle al cliente cuándo se puede visitar. */
   function agendaEnPalabras() {
@@ -959,7 +965,7 @@
   window.Store = {
     ETAPAS: ETAPAS, HORARIOS: HORARIOS, CANALES: CANALES, PAISES: PAISES, PAIS_DEF: PAIS_DEF, DIAS: DIAS,
     agenda: agenda, guardarAgenda: guardarAgenda, bloquesDe: bloquesDe, diaAbierto: diaAbierto,
-    agendaEnPalabras: agendaEnPalabras, agendaDefault: agendaDefault,
+    agendaEnPalabras: agendaEnPalabras, agendaDefault: agendaDefault, agendaAbierta: agendaAbierta,
     google: google, guardarGoogle: guardarGoogle, desconectarGoogle: desconectarGoogle,
     hoyLocal: hoyLocal, paisDe: paisDe, telMostrar: telMostrar, telE164: telE164, telWa: telWa,
     waMostrar: waMostrar, waPropio: waPropio, tieneWhatsApp: tieneWhatsApp,

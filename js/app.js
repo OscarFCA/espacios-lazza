@@ -408,6 +408,23 @@
       '</article>';
   }
 
+  /* Un estado vacío dice tres cosas: qué no hay, por qué, y qué se puede hacer.
+     Una sola pieza para todos, así ninguno se ve distinto de los demás. */
+  function vacioHTML(titulo, texto, acciones, extra) {
+    return '<div class="state' + (extra ? " " + extra : "") + '">' +
+      '<h3>' + esc(titulo) + '</h3>' +
+      (texto ? '<p>' + esc(texto) + '</p>' : "") +
+      ((acciones || []).length
+        ? '<div class="state__acciones">' + acciones.map(function (a) {
+            return '<button class="btn btn--' + (a.secundaria ? "secondary" : "primary") + '" data-action="' +
+              esc(a.accion) + '"' + (a.patch ? ' data-patch=\'' + esc(JSON.stringify(a.patch)) + '\'' : "") +
+              (a.tab ? ' data-tab="' + esc(a.tab) + '"' : "") +
+              '>' + esc(a.txt) + '</button>';
+          }).join("") + '</div>'
+        : "") +
+    '</div>';
+  }
+
   function skeletonHTML(n) {
     var out = "";
     for (var i = 0; i < n; i++) {
@@ -435,7 +452,9 @@
   /* ---------- Home ---------- */
 
   function viewHome() {
-    var destacadas = DATA.filter(function (p) { return p.op === state.op; }).slice(0, 6);
+    var delTrato = DATA.filter(function (p) { return p.op === state.op; });
+    var destacadas = delTrato.slice(0, 6);
+    var total = delTrato.length;
     return '' +
     '<section class="container hero">' +
       '<p class="eyebrow">Patrimonio · Inversión · Arquitectura</p>' +
@@ -480,9 +499,19 @@
     '<section class="container section section--propiedades">' +
       '<div class="section__head">' +
         '<h2>' + (state.op === "renta" ? "En renta ahora" : "Selección con potencial") + '</h2>' +
-        '<button class="btn btn--link" data-action="search">Ver las ' + DATA.filter(function (p) { return p.op === state.op; }).length + '</button>' +
+        /* Sin nada que contar, "Ver las 0" sobra. */
+        (total ? '<button class="btn btn--link" data-action="search">Ver las ' + total + '</button>' : "") +
       '</div>' +
-      '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>' +
+      (total
+        ? '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>'
+        : vacioHTML(
+            state.op === "renta" ? "Todavía no hay nada en renta." : "Todavía no hay propiedades publicadas.",
+            state.op === "renta"
+              ? "Por ahora solo tenemos propiedades en venta. En cuanto entre algo en renta, aparece aquí."
+              : "Estamos preparando la selección. En cuanto publiquemos las primeras, las verás aquí.",
+            state.op === "renta"
+              ? [{ txt: "Ver lo que hay en venta", accion: "quick", patch: { op: "venta", tipos: [], condiciones: [] } }]
+              : [{ txt: "Hablar con un asesor", accion: "contact" }])) +
     '</section>' +
 
     '<section class="section--soft">' +
@@ -563,21 +592,20 @@
 
     var body;
     if (state.error) {
-      body = '<div class="state"><h3>No pudimos cargar las propiedades.</h3><p>Revisa tu conexión e inténtalo otra vez.</p>' +
-        '<button class="btn btn--primary" data-action="retry">Intentar de nuevo</button></div>';
+      body = vacioHTML("No pudimos cargar las propiedades.",
+        "Revisa tu conexión e inténtalo otra vez.",
+        [{ txt: "Intentar de nuevo", accion: "retry" }]);
     } else if (state.loading) {
       body = '<div class="grid">' + skeletonHTML(6) + "</div>";
     } else if (!results.length) {
-      body = '<div class="state"><h3>No encontramos propiedades con esos filtros.</h3>' +
-        (cs.length
-          ? '<p>Están activos: ' + cs.map(function (c) { return esc(c.label); }).join(", ") + '.</p>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
-              '<button class="btn btn--primary" data-action="clear-all">Quitar todos los filtros</button>' +
-              '<button class="btn btn--secondary" data-action="filters-open">Ajustarlos</button>' +
-            '</div>'
-          : '<p>Prueba con otra zona o cambia de Comprar a Rentar.</p>' +
-            '<button class="btn btn--primary" data-action="filters-open">Abrir filtros</button>') +
-      '</div>';
+      body = cs.length
+        ? vacioHTML("No encontramos propiedades con esos filtros.",
+            "Están activos: " + cs.map(function (c) { return c.label; }).join(", ") + ".",
+            [{ txt: "Quitar todos los filtros", accion: "clear-all" },
+             { txt: "Ajustarlos", accion: "filters-open", secundaria: true }])
+        : vacioHTML("No encontramos propiedades con esos filtros.",
+            "Prueba con otra zona o cambia de Comprar a Rentar.",
+            [{ txt: "Abrir filtros", accion: "filters-open" }]);
     } else {
       body = '<div class="grid">' + results.map(function (p) { return cardHTML(p); }).join("") + "</div>";
     }
@@ -598,12 +626,19 @@
     return '<div class="container results">' +
       '<p class="eyebrow">Tu selección</p>' +
       '<h1 style="margin-top:12px">Guardados</h1>' +
-      (saved.length
+      /* Sin cuenta la lista no está vacía: no existe. Decir lo mismo en los dos
+         casos hace creer que se perdió lo guardado. */
+      (!S.sesion()
+        ? vacioHTML("Entra para ver tus guardados.",
+            "Los guardados viven en tu cuenta, así que los encuentras desde cualquier teléfono o computadora.",
+            [{ txt: "Crear cuenta", accion: "signup" },
+             { txt: "Iniciar sesión", accion: "login", secundaria: true }], "state--alto")
+      : saved.length
         ? '<p class="lead" style="margin-top:12px">' + saved.length + (saved.length === 1 ? " propiedad guardada" : " propiedades guardadas") + ' en tu cuenta.</p>' +
           '<div class="grid" style="margin-top:32px">' + saved.map(function (p) { return cardHTML(p); }).join("") + "</div>"
-        : '<div class="state" style="margin-top:24px"><h3>Aún no guardas propiedades.</h3>' +
-          '<p>Toca el marcador de una propiedad para conservarla aquí y compararla después.</p>' +
-          '<button class="btn btn--primary" data-action="search">Explorar propiedades</button></div>') +
+        : vacioHTML("Aún no guardas propiedades.",
+            "Toca el marcador de una propiedad para conservarla aquí y compararla después.",
+            [{ txt: "Explorar propiedades", accion: "search" }], "state--alto")) +
     '</div>';
   }
 
@@ -640,7 +675,18 @@
           '</div>') +
       '</div>' +
 
-      (dentro
+      /* Sin oportunidades, el candado prometería "0 reservadas" y el badge
+         anunciaría un acceso a nada. Mejor decir que no hay. */
+      (!lista.length
+        ? vacioHTML("No hay oportunidades abiertas ahora mismo.",
+            dentro
+              ? "Tu cuenta ya tiene el acceso. En cuanto entre la siguiente, la verás aquí antes que el resto."
+              : "Publicamos aquí las propiedades con más potencial antes de abrirlas al público. Crea tu cuenta y las verás antes que nadie, en cuanto entre la primera.",
+            dentro
+              ? [{ txt: "Ver el catálogo", accion: "search" }]
+              : [{ txt: "Crear cuenta", accion: "signup" },
+                 { txt: "Ver el catálogo", accion: "search", secundaria: true }])
+      : dentro
         ? '<p class="badge-pro">' + icon("bookmark", 12) + 'Tienes acceso anticipado</p>' +
           '<div class="grid">' + lista.map(function (p) { return cardHTML(p); }).join("") + '</div>'
         : '<div class="lockbar">' +
@@ -744,8 +790,8 @@
         '<p class="perfil__nota">Las publicamos aquí antes de abrirlas al público.</p>' +
         (oport.length
           ? '<div class="grid" style="margin-top:24px">' + oport.map(function (p) { return cardHTML(p); }).join("") + '</div>'
-          : '<div class="state" style="margin-top:24px"><h3>No hay oportunidades abiertas en este momento.</h3>' +
-            '<p>En cuanto entre una, la verás aquí antes que el resto.</p></div>') +
+          : vacioHTML("No hay oportunidades abiertas en este momento.",
+              "En cuanto entre una, la verás aquí antes que el resto.", [], "state--alto")) +
       '</section>' +
 
       '<section class="perfil__seccion">' +
@@ -755,9 +801,9 @@
           : "Todavía no guardas propiedades.") + '</p>' +
         (guardadas.length
           ? '<div class="grid" style="margin-top:24px">' + guardadas.map(function (p) { return cardHTML(p); }).join("") + '</div>'
-          : '<div class="state" style="margin-top:24px"><h3>Aún no guardas propiedades.</h3>' +
-            '<p>Toca el marcador de una propiedad para conservarla aquí.</p>' +
-            '<button class="btn btn--primary" data-action="search">Explorar propiedades</button></div>') +
+          : vacioHTML("Aún no guardas propiedades.",
+              "Toca el marcador de una propiedad para conservarla aquí.",
+              [{ txt: "Explorar propiedades", accion: "search" }], "state--alto")) +
       '</section>' +
     '</div>';
   }
@@ -766,7 +812,10 @@
 
   function viewDetail() {
     var p = S.catalogoCompleto().filter(function (x) { return x.slug === state.sel; })[0];
-    if (!p) return '<div class="container results"><div class="state"><h3>Esta propiedad ya no está disponible.</h3><p>Puede haberse retirado del catálogo.</p><button class="btn btn--primary" data-action="search">Ver propiedades</button></div></div>';
+    if (!p) return '<div class="container results">' +
+      vacioHTML("Esta propiedad ya no está disponible.",
+        "Puede haberse retirado del catálogo.",
+        [{ txt: "Ver propiedades", accion: "search" }]) + '</div>';
 
     var fav = !!favs()[p.slug];
     var total = Math.max(1, p.fotosCount || 1);
@@ -856,15 +905,23 @@
           '<p class="aside__label">Asesor patrimonial</p>' +
           '<p class="aside__name">Legato Capital · ' + esc(p.zona.split(",")[0]) + '</p>' +
           '<button class="btn btn--primary btn--block" data-action="contact">Contactar</button>' +
-          '<button class="btn btn--secondary btn--block" data-action="visita">Agendar visita</button>' +
+          /* Sin horarios abiertos no se ofrece agendar: un botón que solo
+             puede terminar en "ese día no hay visitas" es una trampa. */
+          (S.agendaAbierta()
+            ? '<button class="btn btn--secondary btn--block" data-action="visita">Agendar visita</button>'
+            : "") +
           '<button class="btn btn--link btn--block" data-action="save-search">Guardar búsqueda</button>' +
           '<p class="aside__note">Respondemos con información verificable sobre superficie, uso de suelo y estado del inmueble.</p>' +
         '</aside>' +
       '</div>' +
 
-      '<hr class="rule" style="margin-top:64px">' +
-      '<h2 style="margin-block:48px 24px">Propiedades similares</h2>' +
-      '<div class="scroller">' + similares.map(function (s) { return cardHTML(s, "compact"); }).join("") + '</div>' +
+      /* Si no hay similares no se anuncia la sección: un título sobre un hueco
+         es peor que no tener la sección. */
+      (similares.length
+        ? '<hr class="rule" style="margin-top:64px">' +
+          '<h2 style="margin-block:48px 24px">Propiedades similares</h2>' +
+          '<div class="scroller">' + similares.map(function (s) { return cardHTML(s, "compact"); }).join("") + '</div>'
+        : "") +
     '</div>' +
 
     '<div class="actionbar">' +
@@ -1892,7 +1949,7 @@
   window.LegatoUI = {
     esc: esc, icon: icon, money: money, toast: toast, render: render,
     go: function (screen, patch) { go(screen, patch); },
-    openSheet: openSheet, closeSheet: closeSheet, hiloHTML: burbujasHTML,
+    openSheet: openSheet, closeSheet: closeSheet, hiloHTML: burbujasHTML, vacioHTML: vacioHTML,
     contexto: function () { return { screen: state.screen, sel: state.sel }; }
   };
 

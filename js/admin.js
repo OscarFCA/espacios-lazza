@@ -106,6 +106,14 @@
 
   function vistaKanban() {
     var leads = window.Store.leads();
+    /* Seis columnas diciendo "Sin interesados" no enseñan nada que una frase no
+       diga mejor. El tablero aparece cuando hay a quién mover. */
+    if (!leads.length) {
+      return ui().vacioHTML("Todavía no hay interesados.",
+        "Cuando alguien cree su cuenta o pida información desde una propiedad, su ficha entra aquí " +
+        "y se puede mover entre las seis etapas.",
+        [{ txt: "Ver las propiedades publicadas", accion: "perfil-tab", tab: "propiedades" }]);
+    }
     return '<div class="kanban" role="list">' + window.Store.ETAPAS.map(function (e) {
       var col = leads.filter(function (l) { return l.etapa === e.id; });
       return '<section class="kcol" data-etapa="' + e.id + '" role="listitem">' +
@@ -346,7 +354,10 @@
         '</div>' +
       '</div>' +
       rejilla +
-      '<p class="agenda__resumen">' + icon("clock", 15) + esc(S.agendaEnPalabras()) + '</p>' +
+      (S.agendaAbierta()
+        ? '<p class="agenda__resumen">' + icon("clock", 15) + esc(S.agendaEnPalabras()) + '</p>'
+        : '<p class="agenda__resumen agenda__resumen--alerta">' + icon("alert", 15) +
+          'Sin ningún bloque marcado, nadie puede pedir una visita: la opción desaparece del sitio.</p>') +
     '</section>' +
     vistaGoogle();
   }
@@ -470,6 +481,11 @@
 
   function vistaPropiedades() {
     var props = window.Store.catalogoCompleto();
+    if (!props.length) {
+      return ui().vacioHTML("No hay propiedades publicadas.",
+        "Publica la primera y aparece en el sitio al instante: en el catálogo, en el buscador y en la portada.",
+        [{ txt: "Publicar propiedad", accion: "prop-new" }]);
+    }
     return '<div class="admin-bar">' +
         '<p class="small">' + props.length + ' propiedades publicadas</p>' +
         '<button class="btn btn--primary btn--sm" data-action="prop-new">Publicar propiedad</button>' +
@@ -575,7 +591,8 @@
 
   function vistaActividad() {
     var act = window.Store.actividad();
-    if (!act.length) return '<div class="state"><h3>Sin actividad todavía.</h3><p>Aquí aparece quién guarda y quién comparte cada propiedad.</p></div>';
+    if (!act.length) return ui().vacioHTML("Sin actividad todavía.",
+      "Aquí aparece quién guarda, comparte, escribe o pide una visita, con fecha.");
     return '<div class="admin-table" role="table">' +
       '<div class="admin-row admin-row--head admin-row--act" role="row">' +
         '<span role="columnheader">Persona</span><span role="columnheader">Acción</span>' +
@@ -609,7 +626,11 @@
       propiedades: S.catalogoCompleto().length,
       actividad: S.actividad().length,
       sinLeer: S.sinLeer(),
-      visitas: S.mensajes().filter(function (m) { return m.tipo === "visita" && !m.confirmada; }).length,
+      /* Solo las visitas de fichas que siguen existiendo: borrado el interesado,
+         anunciar su visita pendiente es anunciar algo que ya no se puede atender. */
+      visitas: S.mensajes().filter(function (m) {
+        return m.tipo === "visita" && !m.confirmada && !!S.lead(m.leadId);
+      }).length,
       nuevos: S.leads().filter(function (l) { return l.etapa === "nuevo"; }).length
     };
   }

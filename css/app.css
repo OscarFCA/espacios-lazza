@@ -1228,3 +1228,11 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
    la página entera: así se desbordaba el Kanban en el teléfono. Posicionar los
    scrollers los convierte en bloque contenedor y los contiene. */
 .kanban, .agenda, .tabsnav, .scroller, .chiprow, .chat--admin, .bot__body { position: relative; }
+
+/* Acciones dentro de un estado vacío: en teléfono se apilan a ancho completo. */
+.state__acciones { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.state__acciones .btn { flex: 1 1 auto; }
+@media (min-width: 600px) { .state__acciones .btn { flex: 0 0 auto; } }
+.agenda__resumen--alerta { color: var(--color-error); }
+.agenda__resumen--alerta svg { flex: 0 0 auto; }
+.state--alto { margin-top: var(--space-lg); }

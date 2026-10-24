@@ -311,6 +311,31 @@ de la cuenta de prueba en `loginHTML` de `js/app.js`.
 > Toda la persistencia está aislada en `js/store.js`: conectar un backend es cambiar
 > ese archivo, no las vistas.
 
+## Estados vacíos
+
+Toda pantalla que puede quedarse sin contenido tiene su estado, con la misma forma:
+**qué no hay, por qué, y qué se puede hacer.** Una sola pieza —`vacioHTML` en
+`js/app.js`, compartida con el panel por `LegatoUI`— para que ninguno se vea distinto.
+
+| Pantalla | Cuándo | Qué hace |
+|---|---|---|
+| Inicio | Sin catálogo, o sin nada en el trato elegido | Lo dice y ofrece hablar con un asesor, o cambiar de renta a venta. Desaparece el «Ver las 0» |
+| Resultados | Error de carga · sin coincidencias | Reintentar · nombra los filtros activos y ofrece quitarlos |
+| Ficha | Propiedad retirada | Lleva al catálogo |
+| Ficha › similares | No hay parecidas | **No se anuncia la sección**: un título sobre un hueco es peor que no tenerla |
+| Guardados | Sin cuenta | «Entra para ver tus guardados» + crear cuenta o entrar |
+| Guardados | Con cuenta, sin guardados | «Aún no guardas propiedades» + explorar |
+| Oportunidades | Sin oportunidades | Lo dice en vez de prometer «0 reservadas» o anunciar acceso a nada |
+| Perfil | Sin oportunidades · sin guardados | Mismo texto que sus pantallas, para no contar dos historias |
+| Panel › Interesados | Sin interesados | Un mensaje que explica cómo llegan, no seis columnas vacías |
+| Panel › Propiedades | Sin catálogo | Sin encabezado de tabla sobre un hueco; botón de publicar |
+| Panel › Actividad | Sin actividad | Explica qué aparecerá ahí |
+| Panel › Disponibilidad | Sin ningún bloque marcado | Avisa en rojo de la consecuencia, y **en el sitio desaparece «Agendar visita»** |
+
+Dos reglas que se repiten: **el vacío por falta de cuenta no se cuenta igual que el
+vacío por falta de contenido** —decir lo mismo hace creer que se perdió algo—, y
+**ningún botón lleva a un callejón**: si la agenda está cerrada, agendar no se ofrece.
+
 ## Categorías: tres ejes que no se mezclan
 
 Antes *tipo* mezclaba la categoría con la condición ("Casas", "Terrenos", "Para
