@@ -1954,6 +1954,7 @@
     esc: esc, icon: icon, money: money, toast: toast, render: render,
     go: function (screen, patch) { go(screen, patch); },
     openSheet: openSheet, closeSheet: closeSheet, hiloHTML: burbujasHTML, vacioHTML: vacioHTML,
+    tarjetaHTML: function (p) { return cardHTML(p); },
     contexto: function () { return { screen: state.screen, sel: state.sel }; }
   };
 

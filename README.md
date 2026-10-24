@@ -48,7 +48,7 @@ Propiedades · Actividad*; sin la bandera esa barra no existe, y forzar
 
 - **Interesados**: Kanban de 6 etapas; la conversación de cada quien vive en su ficha. Una fila por cliente, ordenada por lo último
   que pasó, con filtros *Todas · Sin leer · Visitas por confirmar*.
-- **Propiedades**: alta, edición, retiro y fotos.
+- **Propiedades**: alta, edición, retiro y fotos (ver abajo).
 - **Disponibilidad**: horarios de visita y conexión con Google Calendar.
 - **Actividad**: quién guardó, compartió, escribió o pidió visita, con fecha.
 
@@ -56,6 +56,24 @@ Propiedades · Actividad*; sin la bandera esa barra no existe, y forzar
 > cliente es WhatsApp. El código sigue entero y la conversación de cada persona se ve en
 > su ficha del Kanban; para devolver la pestaña, pon `oculta: false` en `TABS_ADMIN`
 > dentro de `js/app.js`.
+
+### Dar de alta una propiedad
+
+Cuatro bloques numerados en vez de dieciséis campos en fila, y **las fotografías
+primero**: es lo que vende y lo que más tarda en subir. La primera queda marcada como
+portada.
+
+Al lado, **la tarjeta se arma mientras se escribe**. No es una maqueta: es la misma
+pieza que dibuja el catálogo, así que lo que se ve ahí es literalmente lo que verá quien
+entre. Con ella van el precio agrupándose solo (`9500000` → `9,500,000`, y «$9,500,000
+MXN» debajo, o «/ mes» si es renta) y la dirección que tendrá la ficha.
+
+- **Lo que falta se dice en el panel**, no en un globo del navegador: «Falta la
+  ubicación y el precio», los campos marcados y el cursor puesto en el primero.
+- **Cerrar no cuesta el trabajo**: lo capturado se guarda como borrador y se retoma al
+  volver a *Publicar propiedad*. El aviso de cierre ofrece descartarlo.
+- Solo tres campos son obligatorios —título, ubicación y precio— y están marcados. El
+  resto se puede dejar vacío: lo vacío no aparece en la ficha.
 
 ### Disponibilidad
 

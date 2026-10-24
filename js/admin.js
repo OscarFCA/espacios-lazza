@@ -532,78 +532,307 @@
       '</div>';
   }
 
+  /* ---------- alta y edición de una propiedad ---------- */
+  /* Cuatro bloques en vez de dieciséis campos en fila, las fotografías
+     primero —es lo que vende y lo que más tarda—, y una vista previa al lado
+     para no publicar a ciegas. */
+
+  var BORRADOR = "legato:borrador:propiedad";
+
+  function campo(id, nombre, etiqueta, opciones) {
+    var o = opciones || {};
+    return '<div class="field" data-campo="' + nombre + '">' +
+      '<label for="' + id + '">' + esc(etiqueta) +
+        (o.obliga ? ' <span class="req" title="Obligatorio">·</span>' : "") + '</label>' +
+      (o.select
+        ? '<select id="' + id + '" name="' + nombre + '">' + o.select + '</select>'
+        : o.area
+          ? '<textarea id="' + id + '" name="' + nombre + '" rows="' + (o.filas || 3) + '" placeholder="' +
+            esc(o.pista || "") + '">' + esc(o.valor || "") + '</textarea>'
+          : '<input id="' + id + '" name="' + nombre + '" type="text"' +
+            (o.numerico ? ' inputmode="numeric"' : "") +
+            ' value="' + esc(o.valor == null ? "" : String(o.valor)) + '" placeholder="' + esc(o.pista || "") + '">') +
+      (o.ayuda ? '<p class="field__ayuda">' + esc(o.ayuda) + '</p>' : "") +
+    '</div>';
+  }
+
   function formPropiedad(p) {
+    var nueva = !p || !p.slug;
     p = p || { slug: "", op: "venta", tipo: "Casa", condicion: "Lista para habitar",
                negociable: false, exclusiva: false, fotos: [], fotosCount: 1 };
     var tipos = window.EL_CATALOG.tipos;
     var condiciones = window.EL_CATALOG.condiciones;
-    var num = function (v) { return v || v === 0 ? v : ""; };
+    var num = function (v) { return v ? v : ""; };
+    var ops = function (lista, sel) {
+      return lista.map(function (t) {
+        var v = typeof t === "string" ? t : t.v, l = typeof t === "string" ? t : t.l;
+        return '<option value="' + esc(v) + '"' + (String(sel) === String(v) ? " selected" : "") + '>' + esc(l) + "</option>";
+      }).join("");
+    };
+
     return '' +
     '<div class="sheet__head">' +
-      '<h2 id="sheet-title">' + (p.slug ? "Editar propiedad" : "Publicar propiedad") + '</h2>' +
-      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
+      '<h2 id="sheet-title">' + (nueva ? "Publicar una propiedad" : "Editar propiedad") + '</h2>' +
+      '<button class="icon-btn" data-action="prop-cerrar" aria-label="Cerrar">' + icon("close", 22) + '</button>' +
     '</div>' +
-    '<div class="sheet__body">' +
-      '<form id="prop-form" data-slug="' + esc(p.slug) + '" style="display:grid;gap:16px">' +
-        '<div class="field"><label for="pf-title">Título</label>' +
-          '<input id="pf-title" name="title" required value="' + esc(p.title || "") + '" placeholder="Casa para remodelar"></div>' +
-        '<div class="field"><label for="pf-zona">Ubicación</label>' +
-          '<input id="pf-zona" name="zona" required value="' + esc(p.zona || "") + '" placeholder="Condesa, Cuauhtémoc"></div>' +
-        '<div class="pair">' +
-          '<div class="field"><label for="pf-op">Operación</label><select id="pf-op" name="op">' +
-            '<option value="venta"' + (p.op === "venta" ? " selected" : "") + '>Venta</option>' +
-            '<option value="renta"' + (p.op === "renta" ? " selected" : "") + '>Renta</option></select></div>' +
-          '<div class="field"><label for="pf-tipo">Tipo</label><select id="pf-tipo" name="tipo">' +
-            tipos.map(function (t) { return '<option' + (p.tipo === t ? " selected" : "") + '>' + t + "</option>"; }).join("") +
-          '</select></div>' +
-        '</div>' +
-        '<div class="pair">' +
-          '<div class="field"><label for="pf-price">Precio (MXN)</label>' +
-            '<input id="pf-price" name="price" inputmode="numeric" required value="' + (p.price ? Number(p.price).toLocaleString("en-US") : "") + '"></div>' +
-          '<div class="field"><label for="pf-cond">Condición</label><select id="pf-cond" name="condicion">' +
-            condiciones.map(function (c) { return '<option' + (p.condicion === c ? " selected" : "") + '>' + c + "</option>"; }).join("") +
-          '</select></div>' +
-        '</div>' +
-        '<div class="pair">' +
-          '<div class="field"><label for="pf-terreno">Terreno (m²)</label>' +
-            '<input id="pf-terreno" name="terreno" inputmode="numeric" value="' + num(p.terreno) + '"></div>' +
-          '<div class="field"><label for="pf-const">Construido (m²)</label>' +
-            '<input id="pf-const" name="construido" inputmode="numeric" value="' + num(p.construido) + '"></div>' +
-        '</div>' +
-        '<div class="pair">' +
-          '<div class="field"><label for="pf-frente">Frente</label>' +
-            '<input id="pf-frente" name="frente" value="' + esc(p.frente || "") + '" placeholder="10 m"></div>' +
-          '<div class="field"><label for="pf-rec">Recámaras</label>' +
-            '<input id="pf-rec" name="rec" inputmode="numeric" value="' + num(p.rec) + '"></div>' +
-        '</div>' +
-        '<div class="pair">' +
-          '<div class="field"><label for="pf-ban">Baños</label>' +
-            '<input id="pf-ban" name="ban" inputmode="numeric" value="' + num(p.ban) + '"></div>' +
-          '<div class="field"><label for="pf-autos">Estacionamientos</label>' +
-            '<input id="pf-autos" name="autos" inputmode="numeric" value="' + num(p.autos) + '"></div>' +
-        '</div>' +
-        '<div class="switch"><label for="pf-negociable">El precio es negociable</label>' +
-          '<input type="checkbox" id="pf-negociable" name="negociable"' + (p.negociable ? " checked" : "") + '></div>' +
-        '<div class="switch"><label for="pf-exclusiva">Oportunidad con acceso anticipado</label>' +
-          '<input type="checkbox" id="pf-exclusiva" name="exclusiva"' + (p.exclusiva ? " checked" : "") + '></div>' +
-        '<div class="field"><label for="pf-desc">Descripción</label>' +
-          '<textarea id="pf-desc" name="desc" rows="3">' + esc(p.desc || "") + '</textarea></div>' +
-        '<div class="field"><label for="pf-pot">¿Por qué tiene potencial?</label>' +
-          '<textarea id="pf-pot" name="potencial" rows="3" placeholder="Posibilidades de intervención, sujetas a normativa."></textarea></div>' +
-        '<div class="field"><label for="pf-maps">Enlace de Google Maps (opcional)</label>' +
-          '<input id="pf-maps" name="maps" value="' + esc(p.maps || "") + '" placeholder="https://maps.app.goo.gl/…"></div>' +
-        '<div class="field"><label for="pf-fotos">Fotografías (hasta ' + (window.Store.nubeViva() ? 8 : 4) + ')</label>' +
-          '<input id="pf-fotos" name="fotos" type="file" accept="image/*" multiple>' +
-          '<p class="small" style="color:var(--text-secondary)">' + (window.Store.nubeViva()
-            ? 'Se reducen a 1600 px y se suben al servidor: las ve cualquiera que entre al sitio.'
-            : 'Se reducen a 1200 px y se guardan solo en este navegador. Conecta la nube para que las vea alguien más.') + '</p>' +
-          '<div class="thumbs" id="pf-thumbs"></div></div>' +
-      '</form>' +
+
+    '<div class="sheet__body prop">' +
+      '<div class="prop__form">' +
+        '<form id="prop-form" data-slug="' + esc(p.slug) + '">' +
+
+          '<section class="prop__bloque">' +
+            '<h3>1 · Las fotografías</h3>' +
+            '<p class="prop__guia">Es lo primero que mira quien busca casa. La primera es la portada.</p>' +
+            '<label class="subir" for="pf-fotos">' + icon("image", 22) +
+              '<span><strong>Elegir fotografías</strong>' +
+              '<span>' + (window.Store.nubeViva()
+                ? "Hasta 8. Se reducen y se suben al servidor: las ve cualquiera que entre."
+                : "Hasta 4. Sin servidor se guardan solo en este navegador.") + '</span></span>' +
+            '</label>' +
+            '<input id="pf-fotos" name="fotos" type="file" accept="image/*" multiple class="sr-only">' +
+            '<div class="thumbs" id="pf-thumbs"></div>' +
+          '</section>' +
+
+          '<section class="prop__bloque">' +
+            '<h3>2 · Lo esencial</h3>' +
+            campo("pf-title", "title", "Título", { obliga: true, valor: p.title,
+              pista: "Casa para remodelar", ayuda: "Cómo se llamará en el catálogo." }) +
+            '<p class="prop__url" id="pf-url" hidden></p>' +
+            campo("pf-zona", "zona", "Ubicación", { obliga: true, valor: p.zona,
+              pista: "Condesa, Cuauhtémoc", ayuda: "Colonia y alcaldía, separadas por coma." }) +
+            '<div class="pair">' +
+              campo("pf-op", "op", "Operación", { select: ops([{ v: "venta", l: "En venta" }, { v: "renta", l: "En renta" }], p.op) }) +
+              campo("pf-tipo", "tipo", "Tipo", { select: ops(tipos, p.tipo) }) +
+            '</div>' +
+            '<div class="field" data-campo="price">' +
+              '<label for="pf-price">Precio <span class="req" title="Obligatorio">·</span></label>' +
+              '<div class="moneda">' +
+                '<span aria-hidden="true">$</span>' +
+                '<input id="pf-price" name="price" inputmode="numeric" placeholder="9,500,000" ' +
+                  'value="' + (p.price ? Number(p.price).toLocaleString("en-US") : "") + '">' +
+                '<span class="moneda__mxn">MXN' + (p.op === "renta" ? " / mes" : "") + '</span>' +
+              '</div>' +
+              '<p class="field__ayuda" id="pf-price-eco"></p>' +
+            '</div>' +
+          '</section>' +
+
+          '<section class="prop__bloque">' +
+            '<h3>3 · Medidas</h3>' +
+            '<p class="prop__guia">Todo opcional. Lo que dejes vacío no aparece en la ficha.</p>' +
+            '<div class="pair">' +
+              campo("pf-terreno", "terreno", "Terreno (m²)", { numerico: true, valor: num(p.terreno), pista: "280" }) +
+              campo("pf-const", "construido", "Construido (m²)", { numerico: true, valor: num(p.construido), pista: "210" }) +
+            '</div>' +
+            '<div class="pair">' +
+              campo("pf-rec", "rec", "Recámaras", { numerico: true, valor: num(p.rec), pista: "3" }) +
+              campo("pf-ban", "ban", "Baños", { numerico: true, valor: num(p.ban), pista: "2" }) +
+            '</div>' +
+            '<div class="pair">' +
+              campo("pf-autos", "autos", "Estacionamientos", { numerico: true, valor: num(p.autos), pista: "2" }) +
+              campo("pf-frente", "frente", "Frente", { valor: p.frente === "—" ? "" : p.frente, pista: "10 m",
+                ayuda: "Cuánto mide el lado que da a la calle." }) +
+            '</div>' +
+          '</section>' +
+
+          '<section class="prop__bloque">' +
+            '<h3>4 · Cómo se cuenta</h3>' +
+            campo("pf-cond", "condicion", "Condición", { select: ops(condiciones, p.condicion),
+              ayuda: "Lista para habitar · Para remodelar · Obra negra · Terreno libre." }) +
+            '<div class="switch"><label for="pf-negociable">El precio es negociable</label>' +
+              '<input type="checkbox" id="pf-negociable" name="negociable"' + (p.negociable ? " checked" : "") + '></div>' +
+            '<div class="switch"><label for="pf-exclusiva">Acceso anticipado<span class="switch__ayuda">' +
+              'Se esconde del catálogo público: solo la ven quienes tengan cuenta.</span></label>' +
+              '<input type="checkbox" id="pf-exclusiva" name="exclusiva"' + (p.exclusiva ? " checked" : "") + '></div>' +
+            campo("pf-desc", "desc", "Descripción", { area: true, valor: p.desc,
+              pista: "Qué es, cómo está y qué la distingue." }) +
+            campo("pf-pot", "potencial", "¿Por qué tiene potencial?", { area: true,
+              pista: "Posibilidades de intervención, sujetas a normativa." }) +
+            campo("pf-maps", "maps", "Enlace de Google Maps", { valor: p.maps, pista: "https://maps.app.goo.gl/…",
+              ayuda: "Opcional. Sin él se arma una búsqueda con la ubicación." }) +
+          '</section>' +
+        '</form>' +
+      '</div>' +
+
+      '<aside class="prop__vista">' +
+        '<p class="prop__vistaT">Así se verá</p>' +
+        '<div id="pf-vista"></div>' +
+      '</aside>' +
     '</div>' +
-    '<div class="sheet__foot">' +
-      '<button class="btn btn--link" data-action="sheet-close">Cancelar</button>' +
-      '<button class="btn btn--primary" data-action="prop-save">' + (p.slug ? "Guardar" : "Publicar") + '</button>' +
+
+    '<div class="sheet__foot prop__foot">' +
+      '<p class="prop__faltan" id="pf-faltan" hidden></p>' +
+      '<div class="prop__botones">' +
+        '<button class="btn btn--link" data-action="prop-cerrar">Cancelar</button>' +
+        '<button class="btn btn--primary" data-action="prop-save">' + (nueva ? "Publicar" : "Guardar") + '</button>' +
+      '</div>' +
     '</div>';
+  }
+
+  /* Lee el formulario como una propiedad, lista para pintar o para guardar. */
+  function recogerProp() {
+    var f = document.getElementById("prop-form");
+    if (!f) return null;
+    var v = leerForm(f);
+    var slug = f.getAttribute("data-slug");
+    var fotos = fotosPendientes || [];
+    return {
+      slug: slug || slugify((v.title || "") + "-" + String(v.zona || "").split(",")[0]),
+      op: v.op, tipo: v.tipo, condicion: v.condicion,
+      negociable: !!v.negociable, exclusiva: !!v.exclusiva,
+      title: (v.title || "").trim(), zona: (v.zona || "").trim(), price: soloNum(v.price),
+      terreno: soloNum(v.terreno), construido: soloNum(v.construido),
+      rec: soloNum(v.rec), ban: soloNum(v.ban), autos: soloNum(v.autos),
+      frente: (v.frente || "").trim() || "—",
+      fotosCount: Math.max(1, fotos.length), fotos: fotos,
+      desc: v.desc || "", potencial: v.potencial || "", maps: v.maps || "",
+      nuevo: 0, x: 50, y: 50
+    };
+  }
+
+  /* Lo que falta se dice en el campo y se resume abajo, no en un globo del
+     navegador que ni se parece al resto del panel. */
+  function validarProp(p) {
+    var faltan = [];
+    if (!p.title) faltan.push({ campo: "title", que: "el título" });
+    if (!p.zona) faltan.push({ campo: "zona", que: "la ubicación" });
+    if (!p.price) faltan.push({ campo: "price", que: "el precio" });
+    return faltan;
+  }
+
+  function pintarFaltan(faltan) {
+    var form = document.getElementById("prop-form");
+    if (!form) return;
+    Array.prototype.forEach.call(form.querySelectorAll("[data-campo]"), function (d) {
+      d.classList.remove("field--error");
+    });
+    faltan.forEach(function (f) {
+      var d = form.querySelector('[data-campo="' + f.campo + '"]');
+      if (d) d.classList.add("field--error");
+    });
+    var aviso = document.getElementById("pf-faltan");
+    if (!aviso) return;
+    aviso.hidden = !faltan.length;
+    if (faltan.length) {
+      var lista = faltan.map(function (f) { return f.que; });
+      aviso.innerHTML = icon("alert", 15) + "Falta " +
+        (lista.length === 1 ? lista[0] : lista.slice(0, -1).join(", ") + " y " + lista[lista.length - 1]) + ".";
+    }
+  }
+
+  /* La vista previa es la misma tarjeta del catálogo: lo que se ve aquí es
+     literalmente lo que verá quien entre. */
+  function pintarVista() {
+    var caja = document.getElementById("pf-vista");
+    if (!caja) return;
+    var p = recogerProp();
+    if (!p) return;
+    p.title = p.title || "Sin título todavía";
+    p.zona = p.zona || "Sin ubicación";
+    caja.innerHTML = ui().tarjetaHTML(p);
+
+    var url = document.getElementById("pf-url");
+    if (url) {
+      url.hidden = !p.slug;
+      url.textContent = "Su dirección: /#/propiedad/" + p.slug;
+    }
+    var eco = document.getElementById("pf-price-eco");
+    if (eco) {
+      eco.textContent = p.price
+        ? ui().money(p.price, p.op) + (p.negociable ? " · negociable" : "")
+        : "Sin precio no se puede publicar.";
+    }
+    var mxn = document.querySelector(".moneda__mxn");
+    if (mxn) mxn.textContent = "MXN" + (p.op === "renta" ? " / mes" : "");
+    guardarBorrador(p);
+  }
+
+  /* Cerrar sin querer no debe costar el trabajo de media hora. */
+  function guardarBorrador(p) {
+    if (document.getElementById("prop-form") && document.getElementById("prop-form").getAttribute("data-slug")) return;
+    try { localStorage.setItem(BORRADOR, JSON.stringify({ p: p, cuando: Date.now() })); } catch (e) {}
+  }
+  function leerBorrador() {
+    try {
+      var d = JSON.parse(localStorage.getItem(BORRADOR) || "null");
+      if (!d || !d.p) return null;
+      if (Date.now() - d.cuando > 7 * 86400000) return null;
+      if (!d.p.title && !d.p.zona && !d.p.price) return null;
+      return d.p;
+    } catch (e) { return null; }
+  }
+  function tirarBorrador() { try { localStorage.removeItem(BORRADOR); } catch (e) {} }
+
+  function montarFormProp() {
+    var input = document.getElementById("pf-fotos");
+    if (!input) return;
+    pintarThumbs();
+    pintarVista();
+
+    /* El precio se agrupa mientras se escribe, sin mover el cursor del final. */
+    var precio = document.getElementById("pf-price");
+    if (precio) {
+      precio.addEventListener("input", function () {
+        var n = soloNum(precio.value);
+        precio.value = n ? n.toLocaleString("en-US") : "";
+      });
+    }
+    var form = document.getElementById("prop-form");
+    if (form) {
+      form.addEventListener("input", pintarVista);
+      form.addEventListener("change", pintarVista);
+    }
+
+    input.addEventListener("change", async function () {
+      var S = window.Store;
+      var f = document.getElementById("prop-form");
+      var slug = (f && f.getAttribute("data-slug")) ||
+                 slugify((document.getElementById("pf-title") || {}).value || "borrador");
+      var files = Array.prototype.slice.call(input.files);
+      var tope = S.nubeViva() ? 8 : 4;
+      if ((fotosPendientes || []).length + files.length > tope) {
+        ui().toast("Caben " + tope + " fotografías; se tomarán las primeras.");
+      }
+      for (var i = 0; i < files.length && (fotosPendientes || []).length < tope; i++) {
+        var alt = files[i].name.replace(/\.[^.]+$/, "");
+        try {
+          if (S.nubeViva()) {
+            pintarSubiendo(alt);
+            var chico = await reducirArchivo(files[i], 1600);
+            fotosPendientes.push(await window.Nube.subirFoto(slug, chico, alt));
+          } else {
+            fotosPendientes.push({ src: await reducirImagen(files[i], 1200), alt: alt });
+          }
+        } catch (e) {
+          ui().toast(e.message || "No se pudo procesar una imagen.");
+        }
+        pintarThumbs();
+        pintarVista();
+      }
+      input.value = "";
+    });
+  }
+
+  function pintarThumbs() {
+    var box = document.getElementById("pf-thumbs");
+    if (!box) return;
+    var fotos = fotosPendientes || [];
+    box.innerHTML = fotos.map(function (f, i) {
+      return '<span class="thumb' + (i === 0 ? " thumb--portada" : "") + '">' +
+        '<img src="' + f.src + '" alt="">' +
+        (i === 0 ? '<span class="thumb__etiqueta">Portada</span>' : "") +
+        '<button type="button" class="thumb__x" data-thumb="' + i + '" ' +
+          'aria-label="Quitar la imagen ' + (i + 1) + '">×</button></span>';
+    }).join("") +
+    (fotos.length ? "" : '<p class="thumbs__vacio">Todavía sin fotografías. La ficha mostrará un marcador gris.</p>');
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-thumb]"), function (b) {
+      b.addEventListener("click", function () {
+        var fuera = fotosPendientes.splice(Number(b.getAttribute("data-thumb")), 1)[0];
+        if (fuera && fuera.ruta && window.Store.nubeViva()) window.Nube.borrarFoto(fuera.ruta);
+        pintarThumbs();
+        pintarVista();
+      });
+    });
   }
 
   /* ============================= actividad ============================ */
@@ -859,10 +1088,13 @@
         return true;
       }
 
-      case "prop-new":
-        fotosPendientes = [];
-        ui().openSheet(formPropiedad(null), montarFormProp);
+      case "prop-new": {
+        var guardado = leerBorrador();
+        fotosPendientes = guardado && guardado.fotos ? guardado.fotos.slice() : [];
+        ui().openSheet(formPropiedad(guardado), montarFormProp);
+        if (guardado) ui().toast("Retomamos el borrador que habías dejado.");
         return true;
+      }
       case "prop-edit": {
         var p = S.catalogoCompleto().filter(function (x) { return x.slug === target.getAttribute("data-slug"); })[0];
         fotosPendientes = (p && p.fotos ? p.fotos.slice() : []);
@@ -885,34 +1117,48 @@
         return true;
       }
       case "prop-save": {
-        var avisoSlug = "";
         var form = document.getElementById("prop-form");
-        if (!form.reportValidity()) return true;
-        var v = leerForm(form);
-        var slug = form.getAttribute("data-slug");
-        if (!slug) {
-          slug = slugify(v.title + "-" + v.zona.split(",")[0]);
-          var base = slug, i = 2;
-          // Un slug repetido pisaría otra propiedad sin avisar.
-          while (S.existeSlug(slug)) { slug = base + "-" + i; i++; }
-          if (slug !== base) avisoSlug = " Ya había una con ese nombre y zona: se publicó como " + slug + ".";
+        var nueva = !form.getAttribute("data-slug");
+        var prop = recogerProp();
+        var faltan = validarProp(prop);
+        if (faltan.length) {
+          pintarFaltan(faltan);
+          var primero = document.querySelector('.field--error input, .field--error textarea');
+          if (primero) primero.focus();
+          return true;
         }
-        var fotos = fotosPendientes || [];
-        S.guardarPropiedad({
-          slug: slug, op: v.op, tipo: v.tipo, condicion: v.condicion,
-          negociable: !!v.negociable, exclusiva: !!v.exclusiva,
-          title: v.title.trim(), zona: v.zona.trim(), price: soloNum(v.price),
-          terreno: soloNum(v.terreno), construido: soloNum(v.construido),
-          rec: soloNum(v.rec), ban: soloNum(v.ban), autos: soloNum(v.autos),
-          frente: v.frente || "—",
-          fotosCount: Math.max(1, fotos.length), fotos: fotos,
-          nuevo: 0, x: 50, y: 50,
-          desc: v.desc || "", potencial: v.potencial || "", maps: v.maps || ""
-        });
+        var avisoSlug = "";
+        if (nueva) {
+          var base = prop.slug, i = 2;
+          // Un slug repetido pisaría otra propiedad sin avisar.
+          while (S.existeSlug(prop.slug)) { prop.slug = base + "-" + i; i++; }
+          if (prop.slug !== base) avisoSlug = " Ya había una con ese nombre y zona: quedó como " + prop.slug + ".";
+        }
+        S.guardarPropiedad(prop);
+        fotosPendientes = null;
+        tirarBorrador();
+        ui().closeSheet();
+        ui().toast((nueva ? "Propiedad publicada." : "Cambios guardados.") + avisoSlug);
+        ui().render();
+        return true;
+      }
+
+      /* Cerrar con algo escrito avisa: el borrador queda, pero más vale
+         decirlo que dejar que lo descubra volviendo. */
+      case "prop-cerrar": {
+        var f2 = document.getElementById("prop-form");
+        var p2 = recogerProp();
+        var algo = p2 && (p2.title || p2.zona || p2.price || (p2.fotos || []).length);
+        if (algo && f2 && !f2.getAttribute("data-slug")) {
+          ui().closeSheet();
+          ui().toast("Guardamos el borrador.", {
+            accion: "Descartarlo",
+            alTocar: function () { tirarBorrador(); fotosPendientes = null; ui().toast("Borrador descartado."); }
+          });
+          return true;
+        }
         fotosPendientes = null;
         ui().closeSheet();
-        ui().toast("Propiedad publicada." + avisoSlug);
-        ui().render();
         return true;
       }
     }
@@ -967,55 +1213,6 @@
     window.Store.actualizarLead(idl, {
       nombre: d.nombre, telefono: d.telefono, pais: d.pais, whatsapp: d.whatsapp, paisWa: d.paisWa, correo: d.correo, correosExtra: d.correosExtra,
       presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
-    });
-  }
-
-  function montarFormProp() {
-    var input = document.getElementById("pf-fotos");
-    if (!input) return;
-    pintarThumbs();
-    input.addEventListener("change", async function () {
-      var S = window.Store;
-      var form = document.getElementById("prop-form");
-      var slug = (form && form.getAttribute("data-slug")) ||
-                 slugify((document.getElementById("pf-title") || {}).value || "borrador");
-      var files = Array.prototype.slice.call(input.files).slice(0, 8);
-      var tope = S.nubeViva() ? 8 : 4;   // sin nube, la cuota del navegador manda
-      for (var i = 0; i < files.length && (fotosPendientes || []).length < tope; i++) {
-        var alt = files[i].name.replace(/\.[^.]+$/, "");
-        try {
-          /* Con nube la imagen va al almacenamiento y lo que se guarda es su
-             dirección. En base64 dentro del navegador, doce propiedades
-             llenaban la cuota y se perdía todo. */
-          if (S.nubeViva()) {
-            pintarSubiendo(alt);
-            var chico = await reducirArchivo(files[i], 1600);
-            var subida = await window.Nube.subirFoto(slug, chico, alt);
-            fotosPendientes.push(subida);
-          } else {
-            var src = await reducirImagen(files[i], 1200);
-            fotosPendientes.push({ src: src, alt: alt });
-          }
-        } catch (e) {
-          ui().toast(e.message || "No se pudo procesar una imagen.");
-        }
-        pintarThumbs();
-      }
-      input.value = "";
-    });
-  }
-  function pintarThumbs() {
-    var box = document.getElementById("pf-thumbs");
-    if (!box) return;
-    box.innerHTML = (fotosPendientes || []).map(function (f, i) {
-      return '<span class="thumb"><img src="' + f.src + '" alt=""><button type="button" class="thumb__x" data-thumb="' + i + '" aria-label="Quitar imagen ' + (i + 1) + '">×</button></span>';
-    }).join("");
-    Array.prototype.forEach.call(box.querySelectorAll("[data-thumb]"), function (b) {
-      b.addEventListener("click", function () {
-        var fuera = fotosPendientes.splice(Number(b.getAttribute("data-thumb")), 1)[0];
-        if (fuera && fuera.ruta && window.Store.nubeViva()) window.Nube.borrarFoto(fuera.ruta);
-        pintarThumbs();
-      });
     });
   }
 
