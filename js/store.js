@@ -475,6 +475,15 @@
     var u = usuarioPorId(identificador);
     if (!u) return { ok: false, motivo: "no-existe" };
     if (u.admin) {
+      /* Con nube, la contraseña la valida Supabase y deja de estar en el
+         repositorio. Sin nube, el hash local, que nunca fue seguridad real. */
+      if (nubeViva()) {
+        try { await window.Nube.entrar(u.correo, String(password || "")); }
+        catch (e) { return { ok: false, motivo: "password", detalle: e.message }; }
+        db.sesion = u.id; db.admin = true; save();
+        await refrescarNube();
+        return { ok: true, admin: true, usuario: u };
+      }
       var passOk = (await sha256(ADMIN_SALT + String(password || ""))) === ADMIN_HASH;
       if (!passOk) return { ok: false, motivo: "password" };
       db.sesion = u.id; db.admin = true; save();
@@ -488,7 +497,12 @@
     if (!db.sesion) return null;
     return db.usuarios.filter(function (u) { return u.id === db.sesion; })[0] || null;
   }
-  function salir() { db.sesion = null; db.admin = false; save(); }
+  function salir() {
+    db.sesion = null; db.admin = false; save();
+    if (nubeViva() && window.Nube.hayEquipo()) {
+      window.Nube.salir().then(refrescarNube);
+    }
+  }
 
   /* ------------------------------ actividad ----------------------------- */
 
@@ -906,7 +920,16 @@
   /* `catalogoCompleto` es todo lo que existe (lo usa el panel y la ficha);
      `catalogo` es lo que ve la búsqueda pública; `oportunidades` son las de
      acceso anticipado, que solo se abren con cuenta. */
+  /* Con la nube encendida ella manda: el catálogo es lo que haya en la base,
+     y `js/data.js` queda solo como semilla de demostración. Las vistas no se
+     enteran —siguen llamando a esto igual, y sigue siendo síncrono—: lo que
+     cambia es de dónde salió lo que hay en memoria. */
+  var deNube = null;        // null = todavía no llega; [] = llegó vacío
+
+  function nubeViva() { return !!(window.Nube && window.Nube.configurada()); }
+
   function catalogoCompleto() {
+    if (nubeViva()) return (deNube || []).slice();
     var base = (window.EL_DATA || []).slice();
     var propias = db.propiedades || [];
     var fuera = {};
@@ -930,6 +953,25 @@
   }
 
   function guardarPropiedad(p) {
+    if (nubeViva()) {
+      /* Optimista: aparece ya y se empuja. Si la nube la rechaza, se avisa y
+         se repone lo que ella diga, no lo que creíamos. */
+      deNube = deNube || [];
+      var j = -1;
+      deNube.forEach(function (x, idx) { if (x.slug === p.slug) j = idx; });
+      if (j >= 0) deNube[j] = p; else deNube.push(p);
+      window.Nube.guardarPropiedad(p)
+        .then(function (guardada) {
+          var k = -1;
+          deNube.forEach(function (x, idx) { if (x.slug === guardada.slug) k = idx; });
+          if (k >= 0) deNube[k] = guardada;
+        })
+        .catch(function (e) {
+          if (avisar) avisar("No se guardó en la nube: " + e.message);
+          refrescarNube();
+        });
+      return p;
+    }
     db.propiedades = db.propiedades || [];
     var i = -1;
     db.propiedades.forEach(function (x, idx) { if (x.slug === p.slug) i = idx; });
@@ -937,7 +979,16 @@
     save();
     return p;
   }
+
   function eliminarPropiedad(slug) {
+    if (nubeViva()) {
+      deNube = (deNube || []).filter(function (p) { return p.slug !== slug; });
+      window.Nube.borrarPropiedad(slug).catch(function (e) {
+        if (avisar) avisar("No se retiró en la nube: " + e.message);
+        refrescarNube();
+      });
+      return;
+    }
     db.propiedades = db.propiedades || [];
     var propia = db.propiedades.filter(function (p) { return p.slug === slug; })[0];
     if (propia && !(window.EL_DATA || []).some(function (b) { return b.slug === slug; })) {
@@ -948,13 +999,34 @@
     save();
   }
 
+  /* Trae el catálogo de la nube y avisa para que la pantalla se redibuje. */
+  var alLlegar = null;
+  function alRefrescar(fn) { alLlegar = fn; }
+  function refrescarNube() {
+    if (!nubeViva()) return Promise.resolve(null);
+    return window.Nube.traerPropiedades().then(function (lista) {
+      deNube = lista || [];
+      if (alLlegar) alLlegar();
+      return deNube;
+    }).catch(function (e) {
+      console.warn("No se pudo leer el catálogo de la nube.", e);
+      if (deNube === null) deNube = [];
+      if (alLlegar) alLlegar();
+      return null;
+    });
+  }
+  function catalogoCargando() { return nubeViva() && deNube === null; }
+
   /* ------------------------------- admin -------------------------------- */
 
   async function entrarAdmin(identificador, password) {
     var r = await iniciarSesion(identificador, password);
     return { ok: !!(r.ok && r.admin) };
   }
-  function esAdmin() { return !!db.admin; }
+  function esAdmin() {
+    if (nubeViva()) return !!db.admin && window.Nube.hayEquipo();
+    return !!db.admin;
+  }
   function salirAdmin() { db.admin = false; save(); }
 
   function reiniciar() {
@@ -986,6 +1058,8 @@
     borrarLead: borrarLead, restaurarLead: restaurarLead, existeSlug: existeSlug,
     agregarNota: agregarNota, borrarNota: borrarNota,
     catalogo: catalogo, catalogoCompleto: catalogoCompleto,
+    nubeViva: nubeViva, refrescarNube: refrescarNube, alRefrescar: alRefrescar,
+    catalogoCargando: catalogoCargando,
     oportunidades: oportunidades, esExclusiva: esExclusiva, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
     guardarPropiedad: guardarPropiedad, eliminarPropiedad: eliminarPropiedad,
     entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin,

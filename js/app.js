@@ -502,7 +502,9 @@
         /* Sin nada que contar, "Ver las 0" sobra. */
         (total ? '<button class="btn btn--link" data-action="search">Ver las ' + total + '</button>' : "") +
       '</div>' +
-      (total
+      (S.catalogoCargando()
+        ? '<div class="grid">' + skeletonHTML(3) + '</div>'
+      : total
         ? '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>'
         : vacioHTML(
             state.op === "renta" ? "Todavía no hay nada en renta." : "Todavía no hay propiedades publicadas.",
@@ -595,7 +597,7 @@
       body = vacioHTML("No pudimos cargar las propiedades.",
         "Revisa tu conexión e inténtalo otra vez.",
         [{ txt: "Intentar de nuevo", accion: "retry" }]);
-    } else if (state.loading) {
+    } else if (state.loading || S.catalogoCargando()) {
       body = '<div class="grid">' + skeletonHTML(6) + "</div>";
     } else if (!results.length) {
       body = cs.length
@@ -677,7 +679,9 @@
 
       /* Sin oportunidades, el candado prometería "0 reservadas" y el badge
          anunciaría un acceso a nada. Mejor decir que no hay. */
-      (!lista.length
+      (S.catalogoCargando()
+        ? '<div class="grid">' + skeletonHTML(3) + '</div>'
+      : !lista.length
         ? vacioHTML("No hay oportunidades abiertas ahora mismo.",
             dentro
               ? "Tu cuenta ya tiene el acceso. En cuanto entre la siguiente, la verás aquí antes que el resto."
@@ -1958,4 +1962,12 @@
   window.Admin.bind();
   window.Bot.montar();
   route(true);
+
+  /* El catálogo de la nube llega después del primer dibujo: cuando aterriza,
+     se repinta. Mientras tanto las pantallas muestran esqueletos, no el
+     estado vacío —decir "no hay propiedades" mientras cargan sería mentir. */
+  if (S.nubeViva()) {
+    S.alRefrescar(function () { render(); });
+    S.refrescarNube();
+  }
 })();

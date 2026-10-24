@@ -519,11 +519,39 @@ punto exacto, agrega el enlace corto a la propiedad en `js/data.js`:
 maps: "https://maps.app.goo.gl/xxxxxxxx"
 ```
 
+## El servidor
+
+Hasta ahora **todo vivía en el `localStorage` del navegador**: un cliente se registraba
+en su teléfono y el equipo nunca lo veía. `backend/esquema.sql` y `js/nube.js` sacan de
+ahí lo primero que tenía que salir: **el catálogo y sus fotografías**.
+
+- **Las propiedades** viven en una tabla de Supabase. El catálogo publicado lo lee
+  cualquiera sin cuenta; escribir exige sesión. Lo imponen las políticas RLS del
+  esquema, no la pantalla.
+- **Las fotos** van a un bucket, no a la base. Antes eran base64 dentro del navegador:
+  a las doce propiedades se llenaba la cuota y se perdía todo. Ahora se reducen a
+  1600 px, se suben y lo que se guarda es su dirección.
+- **La contraseña del equipo la valida Supabase**, así que deja de vivir como hash en
+  un repositorio público.
+- **Sin dependencias**: la API de Supabase es REST y `fetch` alcanza. Ni librería ni CDN.
+
+Las vistas no se enteraron: `catalogoCompleto()` sigue siendo síncrono y devuelve lo
+que haya en memoria; lo que cambió es de dónde salió. Mientras el catálogo viaja, las
+pantallas muestran esqueletos —decir «no hay propiedades» mientras cargan sería mentir.
+
+**Sin credenciales el sitio funciona igual que antes**, con el catálogo de `js/data.js`,
+y el panel avisa en su pestaña de Propiedades que lo que suba solo lo verá él.
+
+Los cinco pasos para encenderlo están en la cabecera de `js/nube.js`. La llave `anon`
+es pública por diseño; la que nunca va ahí es `service_role`.
+
 ## Pendiente para producción
 
-- Backend o CMS para el catálogo (hoy `js/data.js` es la fuente).
-- Backend real: cuentas con contraseña, datos compartidos entre dispositivos y un
-  panel con acceso de verdad. Hoy `js/store.js` es el único archivo a sustituir.
+- **Conectar el servidor**: pegar las credenciales en `js/nube.js` (ver «El servidor»).
+- Llevar a la base lo que sigue en el navegador: cuentas, guardados, interesados,
+  mensajes y visitas. El catálogo y las fotos ya salieron.
+- Quitar el `noindex` de `index.html`: hoy el sitio es invisible para los buscadores.
+- Fotografías y datos reales de las propiedades.
 - Que los mensajes **salgan del navegador**: hoy *Contactar* y *Agendar visita*
   guardan la conversación en local. Falta el envío real (correo o WhatsApp) y la
   notificación al equipo.

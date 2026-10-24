@@ -479,14 +479,31 @@
 
   /* ============================ propiedades =========================== */
 
+  /* Lo primero que tiene que saber quien publica: si lo que sube lo verá
+     alguien más, o solo él. */
+  function bandaNube() {
+    var S = window.Store;
+    if (S.nubeViva()) {
+      return '<p class="nube nube--viva">' + icon("check", 15) +
+        'Conectado al servidor: lo que publiques se ve en el sitio al instante, desde cualquier dispositivo.</p>';
+    }
+    return '<div class="nube nube--falta">' +
+      '<p><strong>Lo que publiques aquí solo lo verás tú.</strong> Sin servidor, las propiedades y sus ' +
+      'fotos se guardan en este navegador: nadie más las ve y a las doce se llena la cuota.</p>' +
+      '<ol class="gcal__pasos">' + (window.Nube ? window.Nube.pasos : []).map(function (t) {
+        return "<li>" + esc(t) + "</li>";
+      }).join("") + '</ol>' +
+    '</div>';
+  }
+
   function vistaPropiedades() {
     var props = window.Store.catalogoCompleto();
     if (!props.length) {
-      return ui().vacioHTML("No hay propiedades publicadas.",
+      return bandaNube() + ui().vacioHTML("No hay propiedades publicadas.",
         "Publica la primera y aparece en el sitio al instante: en el catálogo, en el buscador y en la portada.",
         [{ txt: "Publicar propiedad", accion: "prop-new" }]);
     }
-    return '<div class="admin-bar">' +
+    return bandaNube() + '<div class="admin-bar">' +
         '<p class="small">' + props.length + ' propiedades publicadas</p>' +
         '<button class="btn btn--primary btn--sm" data-action="prop-new">Publicar propiedad</button>' +
       '</div>' +
@@ -575,9 +592,11 @@
           '<textarea id="pf-pot" name="potencial" rows="3" placeholder="Posibilidades de intervención, sujetas a normativa."></textarea></div>' +
         '<div class="field"><label for="pf-maps">Enlace de Google Maps (opcional)</label>' +
           '<input id="pf-maps" name="maps" value="' + esc(p.maps || "") + '" placeholder="https://maps.app.goo.gl/…"></div>' +
-        '<div class="field"><label for="pf-fotos">Fotografías (hasta 4)</label>' +
+        '<div class="field"><label for="pf-fotos">Fotografías (hasta ' + (window.Store.nubeViva() ? 8 : 4) + ')</label>' +
           '<input id="pf-fotos" name="fotos" type="file" accept="image/*" multiple>' +
-          '<p class="small" style="color:var(--text-secondary)">Se reducen a 1200 px antes de guardarse en este navegador.</p>' +
+          '<p class="small" style="color:var(--text-secondary)">' + (window.Store.nubeViva()
+            ? 'Se reducen a 1600 px y se suben al servidor: las ve cualquiera que entre al sitio.'
+            : 'Se reducen a 1200 px y se guardan solo en este navegador. Conecta la nube para que las vea alguien más.') + '</p>' +
           '<div class="thumbs" id="pf-thumbs"></div></div>' +
       '</form>' +
     '</div>' +
@@ -652,6 +671,41 @@
   }
 
   var fotosPendientes = null;
+
+  /* Igual que reducirImagen, pero devuelve un archivo para subirlo tal cual:
+     mandar base64 al almacenamiento pesaría un tercio más. */
+  function reducirArchivo(file, max) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var e = Math.min(1, max / Math.max(img.width, img.height));
+          var c = document.createElement("canvas");
+          c.width = Math.round(img.width * e);
+          c.height = Math.round(img.height * e);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          c.toBlob(function (b) {
+            if (!b) return rej(new Error("No se pudo preparar la imagen."));
+            res(new File([b], "foto.jpg", { type: "image/jpeg" }));
+          }, "image/jpeg", 0.82);
+        };
+        img.onerror = rej;
+        img.src = fr.result;
+      };
+      fr.onerror = rej;
+      fr.readAsDataURL(file);
+    });
+  }
+
+  function pintarSubiendo(nombre) {
+    var box = document.getElementById("pf-thumbs");
+    if (!box) return;
+    box.insertAdjacentHTML("beforeend",
+      '<span class="thumb thumb--subiendo" data-subiendo="1">' +
+        '<span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span>' +
+        '<span class="sr-only">Subiendo ' + esc(nombre) + '…</span></span>');
+  }
 
   function reducirImagen(file, max) {
     return new Promise(function (res, rej) {
@@ -921,14 +975,33 @@
     if (!input) return;
     pintarThumbs();
     input.addEventListener("change", async function () {
-      var files = Array.prototype.slice.call(input.files).slice(0, 4);
-      for (var i = 0; i < files.length && (fotosPendientes || []).length < 4; i++) {
+      var S = window.Store;
+      var form = document.getElementById("prop-form");
+      var slug = (form && form.getAttribute("data-slug")) ||
+                 slugify((document.getElementById("pf-title") || {}).value || "borrador");
+      var files = Array.prototype.slice.call(input.files).slice(0, 8);
+      var tope = S.nubeViva() ? 8 : 4;   // sin nube, la cuota del navegador manda
+      for (var i = 0; i < files.length && (fotosPendientes || []).length < tope; i++) {
+        var alt = files[i].name.replace(/\.[^.]+$/, "");
         try {
-          var src = await reducirImagen(files[i], 1200);
-          fotosPendientes.push({ src: src, alt: files[i].name.replace(/\.[^.]+$/, "") });
-        } catch (e) { ui().toast("No se pudo procesar una imagen."); }
+          /* Con nube la imagen va al almacenamiento y lo que se guarda es su
+             dirección. En base64 dentro del navegador, doce propiedades
+             llenaban la cuota y se perdía todo. */
+          if (S.nubeViva()) {
+            pintarSubiendo(alt);
+            var chico = await reducirArchivo(files[i], 1600);
+            var subida = await window.Nube.subirFoto(slug, chico, alt);
+            fotosPendientes.push(subida);
+          } else {
+            var src = await reducirImagen(files[i], 1200);
+            fotosPendientes.push({ src: src, alt: alt });
+          }
+        } catch (e) {
+          ui().toast(e.message || "No se pudo procesar una imagen.");
+        }
+        pintarThumbs();
       }
-      pintarThumbs();
+      input.value = "";
     });
   }
   function pintarThumbs() {
@@ -939,7 +1012,8 @@
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-thumb]"), function (b) {
       b.addEventListener("click", function () {
-        fotosPendientes.splice(Number(b.getAttribute("data-thumb")), 1);
+        var fuera = fotosPendientes.splice(Number(b.getAttribute("data-thumb")), 1)[0];
+        if (fuera && fuera.ruta && window.Store.nubeViva()) window.Nube.borrarFoto(fuera.ruta);
         pintarThumbs();
       });
     });
