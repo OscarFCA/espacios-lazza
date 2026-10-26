@@ -382,6 +382,19 @@ El nav se simplificó a **Comprar · Rentar · Oportunidades · Nosotros**: los 
 en los filtros, no duplicados en la navegación. *Inversión* desapareció porque no
 filtraba nada — era la misma lista reordenada.
 
+## El catálogo está vacío a propósito
+
+Las dieciséis propiedades que vivían en `js/data.js` eran **de demostración** —títulos,
+precios y zonas inventados para poder construir— y se borraron el 25-oct-2026: no se
+lanza con datos falsos.
+
+De aquí en adelante el catálogo se carga desde el panel, no desde el archivo:
+**Perfil → Propiedades → Publicar propiedad**. Todas las pantallas tienen su estado
+vacío, así que un catálogo en cero se ve intencional, no roto.
+
+> Los **interesados de ejemplo** del Kanban siguen ahí, marcados como tales: sin ellos
+> no se puede evaluar el tablero. Se van con *Reiniciar datos*, o dilo y los quito.
+
 ## Auditoría de heurísticas (Nielsen)
 
 Lo que se encontró y se corrigió:

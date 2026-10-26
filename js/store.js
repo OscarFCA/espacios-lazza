@@ -1023,6 +1023,12 @@
     var r = await iniciarSesion(identificador, password);
     return { ok: !!(r.ok && r.admin) };
   }
+  /* Quien atiende tiene nombre: sale de la cuenta del equipo. */
+  function nombreAsesor() {
+    var a = db.usuarios.filter(function (u) { return u.admin; })[0];
+    return (a && a.nombre) || ADMIN_NOMBRE;
+  }
+
   function esAdmin() {
     if (nubeViva()) return !!db.admin && window.Nube.hayEquipo();
     return !!db.admin;
@@ -1062,7 +1068,7 @@
     catalogoCargando: catalogoCargando,
     oportunidades: oportunidades, esExclusiva: esExclusiva, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
     guardarPropiedad: guardarPropiedad, eliminarPropiedad: eliminarPropiedad,
-    entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin,
+    entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin, nombreAsesor: nombreAsesor,
     reiniciar: reiniciar
   };
 })();

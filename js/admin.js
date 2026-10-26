@@ -50,8 +50,10 @@
   function canalLabel(id) { return etiqueta("CANALES", id); }
 
   function tituloDe(slug) {
+    if (!slug) return "";
     var p = window.Store.catalogoCompleto().filter(function (x) { return x.slug === slug; })[0];
-    return p ? p.title + " · " + p.zona : slug;
+    /* Enseñar el slug pelón de una propiedad retirada no le dice nada a nadie. */
+    return p ? p.title + " · " + p.zona : "Una propiedad que ya no está en el catálogo";
   }
 
   /* ============================== Kanban ============================== */
@@ -190,7 +192,7 @@
     return '' +
     '<div class="sheet__head">' +
       '<h2 id="sheet-title">' + esc(l.nombre) + '</h2>' +
-      '<button class="icon-btn" data-action="sheet-close" aria-label="Cerrar ficha">' + icon("close", 22) + '</button>' +
+      '<button class="icon-btn" data-action="lead-cerrar" aria-label="Cerrar ficha">' + icon("close", 22) + '</button>' +
     '</div>' +
     '<div class="sheet__body">' +
       conversacionHTML(l, true) +
@@ -278,7 +280,8 @@
       '</div>' +
     '</div>' +
     '<div class="sheet__foot">' +
-      '<button class="btn btn--link" data-action="lead-delete" data-lead="' + esc(l.id) + '">Eliminar</button>' +
+      '<button class="btn btn--link" data-action="lead-cerrar">Cancelar</button>' +
+      '<button class="btn btn--quiet btn--sm" data-action="lead-delete" data-lead="' + esc(l.id) + '">Eliminar</button>' +
       '<button class="btn btn--primary" data-action="lead-save">Guardar cambios</button>' +
     '</div>';
   }
@@ -538,6 +541,7 @@
      para no publicar a ciegas. */
 
   var BORRADOR = "legato:borrador:propiedad";
+  var BORRADOR_LEAD = "legato:borrador:interesado";
 
   function campo(id, nombre, etiqueta, opciones) {
     var o = opciones || {};
@@ -683,7 +687,11 @@
       terreno: soloNum(v.terreno), construido: soloNum(v.construido),
       rec: soloNum(v.rec), ban: soloNum(v.ban), autos: soloNum(v.autos),
       frente: (v.frente || "").trim() || "—",
-      fotosCount: Math.max(1, fotos.length), fotos: fotos,
+      /* Una propiedad puede declarar más fotos de las que tiene cargadas
+         —el catálogo semilla lo hace—: guardar sin tocarlas no debe dejarla
+         en una sola y romperle el carrusel. */
+      fotosCount: fotos.length || (propOriginal && propOriginal.fotosCount) || 1,
+      fotos: fotos,
       desc: v.desc || "", potencial: v.potencial || "", maps: v.maps || "",
       nuevo: 0, x: 50, y: 50
     };
@@ -761,6 +769,47 @@
     } catch (e) { return null; }
   }
   function tirarBorrador() { try { localStorage.removeItem(BORRADOR); } catch (e) {} }
+
+  /* Mismo trato que el alta de propiedad: cerrar la ficha no debe costar lo
+     que se acaba de capturar. Se guarda aparte, no sobre la ficha, para no
+     escribir datos a medio escribir en la cuenta del cliente. */
+  function guardarBorradorLead(idl, d) {
+    try {
+      var todos = JSON.parse(localStorage.getItem(BORRADOR_LEAD) || "{}");
+      todos[idl] = { d: d, cuando: Date.now() };
+      localStorage.setItem(BORRADOR_LEAD, JSON.stringify(todos));
+    } catch (e) {}
+  }
+  function leerBorradorLead(idl) {
+    try {
+      var todos = JSON.parse(localStorage.getItem(BORRADOR_LEAD) || "{}");
+      var x = todos[idl];
+      if (!x || Date.now() - x.cuando > 7 * 86400000) return null;
+      return x.d;
+    } catch (e) { return null; }
+  }
+  function tirarBorradorLead(idl) {
+    try {
+      var todos = JSON.parse(localStorage.getItem(BORRADOR_LEAD) || "{}");
+      delete todos[idl];
+      localStorage.setItem(BORRADOR_LEAD, JSON.stringify(todos));
+    } catch (e) {}
+  }
+  function hayCambiosLead() {
+    var f = document.getElementById("lead-form");
+    if (!f) return null;
+    var idl = f.getAttribute("data-lead");
+    var l = window.Store.lead(idl);
+    if (!l) return null;
+    var d = leerForm(f);
+    var distinto = ["nombre", "telefono", "pais", "correo", "correosExtra", "empresa", "etapa", "whatsapp", "paisWa"]
+      .some(function (k) { return String(d[k] == null ? "" : d[k]) !== String(l[k] == null ? "" : l[k]); }) ||
+      soloNum(d.presupuesto) !== Number(l.presupuesto || 0);
+    /* El presupuesto viaja como "18,000,000": si se guarda tal cual, al
+       volver Number() lo convierte en NaN y el campo aparece roto. */
+    d.presupuesto = soloNum(d.presupuesto);
+    return distinto ? { id: idl, d: d } : null;
+  }
 
   function montarFormProp() {
     var input = document.getElementById("pf-fotos");
@@ -900,6 +949,7 @@
   }
 
   var fotosPendientes = null;
+  var propOriginal = null;   // la que se está editando, para no perder lo suyo
 
   /* Igual que reducirImagen, pero devuelve un archivo para subirlo tal cual:
      mandar base64 al almacenamiento pesaría un tercio más. */
@@ -1049,13 +1099,29 @@
         return true;
       }
 
+      case "lead-cerrar": {
+        var pend = hayCambiosLead();
+        ui().closeSheet();
+        if (pend) {
+          guardarBorradorLead(pend.id, pend.d);
+          ui().toast("Guardamos lo que escribiste.", {
+            accion: "Descartarlo",
+            alTocar: function () { tirarBorradorLead(pend.id); ui().toast("Cambios descartados."); }
+          });
+        }
+        return true;
+      }
+
       case "lead-save": {
         var f = document.getElementById("lead-form");
         var d = leerForm(f);
+        var errL = validarLead(d);
+        if (Object.keys(errL).length) { pintarErroresLead(errL); return true; }
         S.actualizarLead(f.getAttribute("data-lead"), {
           nombre: d.nombre, telefono: d.telefono, pais: d.pais, whatsapp: d.whatsapp, paisWa: d.paisWa, correo: d.correo, correosExtra: d.correosExtra,
           presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa
         });
+        tirarBorradorLead(f.getAttribute("data-lead"));
         ui().closeSheet(); ui().toast("Ficha actualizada."); ui().render();
         return true;
       }
@@ -1089,6 +1155,7 @@
       }
 
       case "prop-new": {
+        propOriginal = null;
         var guardado = leerBorrador();
         fotosPendientes = guardado && guardado.fotos ? guardado.fotos.slice() : [];
         ui().openSheet(formPropiedad(guardado), montarFormProp);
@@ -1097,6 +1164,7 @@
       }
       case "prop-edit": {
         var p = S.catalogoCompleto().filter(function (x) { return x.slug === target.getAttribute("data-slug"); })[0];
+        propOriginal = p || null;
         fotosPendientes = (p && p.fotos ? p.fotos.slice() : []);
         ui().openSheet(formPropiedad(p), function () {
           montarFormProp();
@@ -1178,7 +1246,10 @@
     if (!l) return false;
     window.Store.marcarLeido(leadId);
     leadAbierto = l.id;
-    ui().openSheet(fichaLead(l));
+    var pendiente = leerBorradorLead(leadId);
+    ui().openSheet(fichaLead(pendiente ? Object.assign({}, l, pendiente) : l), function () {
+      if (pendiente) ui().toast("Retomamos lo que habías dejado escrito.");
+    });
     ui().render();
     return true;
   }
@@ -1205,11 +1276,51 @@
     });
   }
 
+  /* La ficha del equipo escribe sobre la cuenta del cliente: un correo mal
+     tecleado aquí lo dejaba sin poder entrar. Ahora se valida antes. */
+  function validarLead(d) {
+    var err = {};
+    if (!String(d.nombre || "").trim()) err.nombre = "El nombre no puede quedar vacío.";
+    var correo = String(d.correo || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) err.correo = "Revisa el correo: no tiene formato válido.";
+    var pais = window.Store.paisDe(d.pais);
+    var tel = String(d.telefono || "").replace(/\D/g, "");
+    if (tel.length < pais.min || tel.length > pais.max) {
+      err.telefono = pais.min === pais.max
+        ? "El teléfono de " + pais.nombre + " lleva " + pais.min + " dígitos."
+        : "El teléfono de " + pais.nombre + " lleva entre " + pais.min + " y " + pais.max + " dígitos.";
+    }
+    var wa = String(d.whatsapp || "").replace(/\D/g, "");
+    if (wa) {
+      var pw = window.Store.paisDe(d.paisWa);
+      if (wa.length < pw.min || wa.length > pw.max) err.whatsapp = "Ese WhatsApp no cuadra con " + pw.nombre + ".";
+    }
+    return err;
+  }
+
+  function pintarErroresLead(err) {
+    var f = document.getElementById("lead-form");
+    if (!f) return;
+    Array.prototype.forEach.call(f.querySelectorAll(".field"), function (d) { d.classList.remove("field--error"); });
+    Array.prototype.forEach.call(f.querySelectorAll(".campo__error"), function (d) { d.remove(); });
+    Object.keys(err).forEach(function (k) {
+      var input = f.querySelector('[name="' + k + '"]');
+      var caja = input && input.closest(".field");
+      if (!caja) return;
+      caja.classList.add("field--error");
+      caja.insertAdjacentHTML("beforeend",
+        '<p class="field__error campo__error">' + icon("alert", 15) + esc(err[k]) + "</p>");
+    });
+    var primero = f.querySelector(".field--error input");
+    if (primero) primero.focus();
+  }
+
   /* Conserva lo escrito en la ficha cuando la bitácora obliga a re-dibujar. */
   function guardarCamposFicha(idl) {
     var f = document.getElementById("lead-form");
     if (!f || f.getAttribute("data-lead") !== idl) return;
     var d = leerForm(f);
+    if (Object.keys(validarLead(d)).length) return;   // nunca escribir datos rotos
     window.Store.actualizarLead(idl, {
       nombre: d.nombre, telefono: d.telefono, pais: d.pais, whatsapp: d.whatsapp, paisWa: d.paisWa, correo: d.correo, correosExtra: d.correosExtra,
       presupuesto: soloNum(d.presupuesto), empresa: d.empresa, etapa: d.etapa

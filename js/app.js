@@ -73,6 +73,12 @@
 
   /* ============================ utilidades ============================ */
 
+  /* Nadie escribe acentos en el teclado del teléfono: "coyoacan" tiene que
+     encontrar Coyoacán. Se comparan los dos lados sin ellos. */
+  function sinAcentos(t) {
+    return String(t == null ? "" : t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
@@ -170,8 +176,8 @@
 
   function matches(p, f) {
     if (p.op !== f.op) return false;
-    var q = (f.q || "").trim().toLowerCase();
-    if (q && (p.zona + " " + p.title).toLowerCase().indexOf(q) === -1) return false;
+    var q = sinAcentos((f.q || "").trim());
+    if (q && sinAcentos(p.zona + " " + p.title).indexOf(q) === -1) return false;
     if (f.tipos.length && f.tipos.indexOf(p.tipo) === -1) return false;
     if (f.condiciones.length && f.condiciones.indexOf(p.condicion) === -1) return false;
     if (f.negociable && !p.negociable) return false;
@@ -299,7 +305,9 @@
         state.screen = "oportunidades";
         state.sel = slug;
         render();
-        pedirRegistro("Esta oportunidad es de acceso anticipado: crea tu cuenta para ver la ficha completa.");
+        /* Se registró para ver ESTA propiedad: al terminar, se abre. */
+        pedirRegistro("Esta oportunidad es de acceso anticipado: crea tu cuenta para ver la ficha completa.",
+          function () { go("detail", { sel: slug }); });
         return;
       }
       state.screen = "detail";
@@ -354,7 +362,10 @@
 
   function startLoading() {
     state.loading = true;
-    state.error = !Array.isArray(DATA) || DATA.length === 0;
+    /* Preguntarle a la copia vieja del catálogo daba un "no pudimos cargar"
+       con propiedades recién llegadas de la nube. Se refresca antes de juzgar. */
+    refrescarDatos();
+    state.error = !Array.isArray(DATA) || (DATA.length === 0 && !S.nubeViva() && !S.catalogoCargando());
     render();
     clearTimeout(loadTimer);
     loadTimer = setTimeout(function () {
@@ -906,15 +917,15 @@
         '</div>' +
 
         '<aside class="aside">' +
-          '<p class="aside__label">Asesor patrimonial</p>' +
-          '<p class="aside__name">Legato Capital · ' + esc(p.zona.split(",")[0]) + '</p>' +
+          '<p class="aside__label">Tu asesor</p>' +
+          '<p class="aside__name">' + esc(S.nombreAsesor()) + '</p>' +
+          '<p class="aside__rol">Legato Capital · Ciudad de México</p>' +
           '<button class="btn btn--primary btn--block" data-action="contact">Contactar</button>' +
           /* Sin horarios abiertos no se ofrece agendar: un botón que solo
              puede terminar en "ese día no hay visitas" es una trampa. */
           (S.agendaAbierta()
             ? '<button class="btn btn--secondary btn--block" data-action="visita">Agendar visita</button>'
             : "") +
-          '<button class="btn btn--link btn--block" data-action="save-search">Guardar búsqueda</button>' +
           '<p class="aside__note">Respondemos con información verificable sobre superficie, uso de suelo y estado del inmueble.</p>' +
         '</aside>' +
       '</div>' +
@@ -943,7 +954,7 @@
   function navItems() {
     return [
       { label: "Comprar", on: state.screen === "results" && state.op === "venta", patch: { op: "venta", tipos: [], condiciones: [] } },
-      { label: "Rentar", on: state.op === "renta", patch: { op: "renta", tipos: [], condiciones: [] } }
+      { label: "Rentar", on: state.screen === "results" && state.op === "renta", patch: { op: "renta", tipos: [], condiciones: [] } }
     ];
   }
 
@@ -1394,9 +1405,9 @@
     });
   }
 
-  function pedirRegistro(contexto, despues) {
+  function pedirRegistro(contexto, despues, valores) {
     accionPendiente = despues || null;
-    openSheet(registroHTML(contexto), function () { ligarPais("rg"); });
+    openSheet(registroHTML(contexto, null, valores), function () { ligarPais("rg"); });
   }
 
   function enviarRegistro() {
@@ -1755,10 +1766,18 @@
         break;
       case "registro-submit": enviarRegistro(); break;
       case "login": closeDrawer(true); pedirLogin(); break;
-      case "signup":
+      case "signup": {
         closeDrawer(true);
-        pedirRegistro("Crea tu cuenta para guardar propiedades y compartirlas.");
+        /* Si venía del acceso con un correo o teléfono escrito, se arrastra:
+           volver a teclearlo es castigar a quien se equivocó de puerta. */
+        var traido = {};
+        if (loginId) {
+          if (loginId.indexOf("@") >= 0) traido.correo = loginId;
+          else if (loginId.replace(/\D/g, "").length >= 7) traido.telefono = loginId;
+        }
+        pedirRegistro("Crea tu cuenta para guardar propiedades y compartirlas.", null, traido);
         break;
+      }
       case "login-next": loginPaso1(); break;
       case "login-admin": loginAdmin(); break;
       case "login-back": openSheet(loginHTML(1)); break;
@@ -1785,7 +1804,11 @@
           break;
         }
         var r = S.alternarFavorito(slug);
-        toast(r.activo ? "Propiedad guardada." : "Propiedad quitada de Guardados.");
+        if (r.activo) toast("Propiedad guardada.");
+        else toast("Propiedad quitada de Guardados.", {
+          accion: "Deshacer",
+          alTocar: function () { S.alternarFavorito(slug); toast("La volvimos a guardar."); render(); }
+        });
         render();
         break;
       }
@@ -1841,7 +1864,6 @@
           if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); el.focus({ preventScroll: true }); }
         }, 80);
         break;
-      case "save-search": toast("Búsqueda guardada."); break;
     }
   });
 
