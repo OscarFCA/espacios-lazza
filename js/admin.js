@@ -128,8 +128,14 @@
   }
 
   /* ========================= conversación ============================= */
-  /* El mismo hilo que el cliente ve en su perfil. Aquí se responde, y desde
-     aquí se confirma una visita —lo único que mueve la ficha de etapa sola. */
+  /* Es de solo lectura: aquí se LEE lo que escribió el cliente y desde aquí se
+     confirma una visita, que es lo único que mueve la ficha de etapa sola.
+     Para responder están el teléfono, el WhatsApp y el correo de arriba.
+     Responder desde aquí está apagado a propósito: el chat del perfil del
+     cliente también lo está (CHAT_PERFIL en js/app.js), así que una respuesta
+     escrita aquí no la leería nadie. Si algún día se enciende aquel, se
+     enciende este y vuelven los dos. */
+  var CHAT_EQUIPO = false;
 
   function conversacionHTML(l, primero) {
     var S = window.Store;
@@ -145,7 +151,7 @@
     '</div>';
 
     return '<div class="admin-block' + (primero ? " admin-block--primero" : "") + '">' +
-      '<h3>Conversación (' + hilo.length + ')</h3>' +
+      '<h3>' + (CHAT_EQUIPO ? 'Conversación' : 'Lo que escribió') + ' (' + hilo.length + ')</h3>' +
       directo +
       (visita
         ? '<div class="citabox">' +
@@ -159,12 +165,16 @@
         : "") +
       (hilo.length
         ? '<ol class="chat chat--admin">' + hilo.map(burbujaHTML).join("") + '</ol>'
-        : '<p class="small" style="color:var(--text-secondary);margin-top:12px">Todavía no hay mensajes con esta persona.</p>') +
-      '<div class="notafrm">' +
-        '<label class="sr-only" for="lf-chat">Responder al cliente</label>' +
-        '<textarea id="lf-chat" rows="2" placeholder="Responder a ' + esc(l.nombre.split(" ")[0]) + '…"></textarea>' +
-        '<button class="btn btn--primary btn--sm" data-action="chat-equipo" data-lead="' + esc(l.id) + '">Responder</button>' +
-      '</div>' +
+        : '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
+          (CHAT_EQUIPO ? 'Todavía no hay mensajes con esta persona.'
+                       : 'Todavía no te ha escrito. Si quieres buscarla tú, usa los botones de arriba.') + '</p>') +
+      (CHAT_EQUIPO
+        ? '<div class="notafrm">' +
+            '<label class="sr-only" for="lf-chat">Responder al cliente</label>' +
+            '<textarea id="lf-chat" rows="2" placeholder="Responder a ' + esc(l.nombre.split(" ")[0]) + '…"></textarea>' +
+            '<button class="btn btn--primary btn--sm" data-action="chat-equipo" data-lead="' + esc(l.id) + '">Responder</button>' +
+          '</div>'
+        : "") +
     '</div>';
   }
 
@@ -1149,6 +1159,7 @@
       }
 
       case "chat-equipo": {
+        if (!CHAT_EQUIPO) return true;     // apagado: ver la bandera arriba
         var idc = target.getAttribute("data-lead");
         var ta = document.getElementById("lf-chat");
         var txt = (ta && ta.value || "").trim();
@@ -1163,10 +1174,19 @@
       case "visita-ok": {
         var m = S.confirmarVisita(target.getAttribute("data-msj"));
         if (!m) return true;
-        S.responderMensaje(m.leadId,
-          "Visita confirmada para el " + fechaDia(m.dia) + ", de " + horaLabel(m.hora) + ". Te esperamos.");
+        var cuando = fechaDia(m.dia) + ", de " + horaLabel(m.hora);
+        /* Esto mandaba un mensaje «Visita confirmada… Te esperamos.» que no
+           leía nadie: el chat del cliente está apagado. Queda como nota en la
+           ficha, que es donde el equipo lleva su registro de verdad. */
+        if (CHAT_EQUIPO) S.responderMensaje(m.leadId, "Visita confirmada para el " + cuando + ". Te esperamos.");
+        else S.agregarNota(m.leadId, "Visita confirmada para el " + cuando + ".");
         abrirFicha(m.leadId);
-        ui().toast("Visita confirmada. La ficha pasó a Visita agendada.");
+        /* Y se dice en voz alta lo que el sistema NO hace: avisarle. Darlo por
+           hecho es como un cliente se queda esperando una confirmación que
+           nunca le llegó. */
+        ui().toast(CHAT_EQUIPO
+          ? "Visita confirmada. La ficha pasó a Visita agendada."
+          : "Visita confirmada y anotada. Avísale tú: el cliente no la ve en el sitio.");
         escribirEnCalendario(m);
         return true;
       }
