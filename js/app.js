@@ -31,6 +31,7 @@
 
   var draft = null;          // copia de filtros mientras el bottom sheet está abierto
   var accionPendiente = null; // lo que el usuario quería hacer antes de registrarse
+  var fichaPendiente = null;  // ficha pedida por su dirección, esperando al catálogo
   // El cierre del panel/menú oculta con retraso (para que corra la transición).
   // Si se abre otro antes de que venza, ese temporizador lo escondería a medias.
   var tSheet = null, tDrawer = null;
@@ -301,6 +302,19 @@
 
     if (path.indexOf("#/propiedad/") === 0) {
       var slug = decodeURIComponent(path.slice("#/propiedad/".length));
+      /* El catálogo de la nube llega DESPUÉS del primer dibujo. Preguntar aquí
+         si la propiedad existe, con el catálogo todavía vacío, mandaba a la
+         portada: eso rompía todos los enlaces compartidos —quien abría
+         /#/propiedad/x desde un WhatsApp aterrizaba en el inicio y se iba—.
+         Se espera a que llegue y entonces se vuelve a pasar por aquí. */
+      if (S.catalogoCargando()) {
+        fichaPendiente = slug;
+        state.screen = "detail";
+        state.sel = slug;
+        render();
+        return;
+      }
+      fichaPendiente = null;
       if (!S.catalogoCompleto().some(function (p) { return p.slug === slug; })) { location.replace("#/"); return; }
       /* E1: un borrador existe en el panel pero no en el sitio. Quien tenga la
          dirección a mano y no sea del equipo no debe poder abrirlo. */
@@ -902,6 +916,10 @@
 
   function viewDetail() {
     var p = S.catalogoCompleto().filter(function (x) { return x.slug === state.sel; })[0];
+    /* Mientras el catálogo viaja no se puede decir que no existe: sería
+       mentir, y además es el caso de todo enlace recién abierto. */
+    if (!p && S.catalogoCargando()) return '<div class="container results">' +
+      '<div class="grid">' + skeletonHTML(1) + '</div></div>';
     if (!p) return '<div class="container results">' +
       vacioHTML("Esta propiedad ya no está disponible.",
         "Puede haberse retirado del catálogo.",
@@ -2065,7 +2083,13 @@
      se repinta. Mientras tanto las pantallas muestran esqueletos, no el
      estado vacío —decir "no hay propiedades" mientras cargan sería mentir. */
   if (S.nubeViva()) {
-    S.alRefrescar(function () { render(); });
+    S.alRefrescar(function () {
+      /* Si alguien entró directo a una ficha, hay que volver a pasar por la
+         ruta y no solo repintar: ahí es donde se comprueba que exista, que no
+         sea borrador y que no sea de acceso anticipado. */
+      if (fichaPendiente) { fichaPendiente = null; route(true); }
+      else render();
+    });
     S.refrescarNube();
     /* Los horarios los lee todo el mundo: sin ellos, el formulario de visita
        ofrecería la agenda por omisión y no la que el equipo dejó puesta. */
