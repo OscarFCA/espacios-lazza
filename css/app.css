@@ -75,9 +75,10 @@ dl, dd { margin: 0; }
 .btn--quiet:hover { border-color: var(--action-accent); color: var(--action-accent); }
 .btn--link { background: none; border: 0; padding: 0 var(--space-xs); min-height: 44px; font-weight: 500; }
 .btn--link:hover { color: var(--action-accent); text-decoration: underline; text-underline-offset: 4px; }
-.btn--sm { min-height: 40px; padding: 10px 16px; font-size: var(--fs-small); }
-/* En pantallas táctiles ningún control baja de 44 px. */
-@media (pointer: coarse) { .btn--sm, .btn--link { min-height: var(--target); } }
+/* --target son 44 px y estos medían 40 con ratón. WCAG 2.2 AA pide 24 (2.5.8)
+   y esto iba sobrado; era incoherencia con el propio listón del proyecto, y el
+   ratón no es razón para bajarlo. Ahora es 44 en todas partes. */
+.btn--sm { min-height: var(--target); padding: 10px 16px; font-size: var(--fs-small); }
 /* Respuesta al toque, donde no hay hover. */
 @media (hover: none) {
   .btn:active, .chip:active, .icon-btn:active { transform: scale(.98); }
@@ -647,6 +648,22 @@ body.has-actionbar .toast { bottom: calc(var(--bottomnav-h) + 80px + var(--safe-
 .footer__note { font-size: 13px; color: var(--text-secondary); }
 .footer__meta { display: grid; gap: var(--space-xs); justify-items: start; }
 @media (min-width: 768px) { .footer__meta { justify-items: end; } }
+/* Quien no usa WhatsApp, o quiere mandar documentos, necesita por dónde. */
+.footer__contacto { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+@media (min-width: 768px) { .footer__contacto { justify-items: end; } }
+.footer__contacto a {
+  display: inline-flex; align-items: center; min-height: var(--target);
+  font-size: var(--fs-small); color: var(--text-primary); text-decoration: underline;
+  text-underline-offset: 4px; text-decoration-color: var(--border-default);
+}
+.footer__contacto a:hover { color: var(--action-primary); text-decoration-color: currentColor; }
+.footer__legal { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); }
+.footer__legal a {
+  display: inline-flex; align-items: center; min-height: var(--target);
+  font-size: 13px; color: var(--text-secondary); text-decoration: underline;
+  text-underline-offset: 4px; text-decoration-color: var(--border-default);
+}
+.footer__legal a:hover { color: var(--action-primary); text-decoration-color: currentColor; }
 /* Entrada al panel interno: presente pero sin competir con nada. */
 .footer__admin {
   background: none; border: 0; padding: 4px 0; min-height: 44px;
@@ -655,6 +672,15 @@ body.has-actionbar .toast { bottom: calc(var(--bottomnav-h) + 80px + var(--safe-
 }
 .footer__admin:hover { color: var(--action-primary); text-decoration-color: currentColor; }
 @media (min-width: 768px) { .footer__inner { grid-template-columns: 1fr auto; align-items: end; } }
+
+/* ---------- Aviso de privacidad ---------- */
+.legal { max-width: 68ch; padding-block: var(--space-2xl); display: grid; gap: var(--space-md); }
+.legal h1 { margin-top: var(--space-xs); }
+.legal__fecha { font-size: 13px; color: var(--text-secondary); }
+.legal__bloque { display: grid; gap: 6px; padding-top: var(--space-md); border-top: 1px solid var(--border-default); }
+.legal__bloque h2 { font-size: var(--fs-body); font-weight: 600; letter-spacing: 0; }
+.legal__bloque p { font-size: var(--fs-small); line-height: 1.65; color: var(--text-on-sand); }
+.legal__pie { display: flex; flex-wrap: wrap; gap: var(--space-sm); margin-top: var(--space-lg); }
 
 /* ---------- Pantallas bajas (teléfono en horizontal) ---------- */
 @media (max-height: 500px) and (orientation: landscape) {
@@ -741,10 +767,9 @@ body.is-admin .footer { display: none; }
 .kcard__foot { display: flex; justify-content: space-between; gap: var(--space-xs); margin-top: var(--space-xs); font-size: 11px; color: var(--text-secondary); }
 .kcard__move { display: block; margin-top: var(--space-xs); }
 .kcard__move select {
-  width: 100%; min-height: 36px; padding: 0 8px; font-size: 12px;
+  width: 100%; min-height: var(--target); padding: 0 8px; font-size: 12px;
   background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-sm);
 }
-@media (pointer: coarse) { .kcard__move select { min-height: var(--target); } }
 
 /* ---------- Tablas del panel ---------- */
 .admin-bar { display: flex; flex-wrap: wrap; gap: var(--space-md); align-items: center; justify-content: space-between; padding-bottom: var(--space-md); }
@@ -763,6 +788,20 @@ body.is-admin .footer { display: none; }
   .admin-row--head { display: none; }
   .admin-row > span:first-child { grid-column: 1 / -1; }
 }
+
+/* Una propiedad en borrador se distingue de un vistazo, sin leer la etiqueta. */
+.admin-row--borrador { background: var(--bg-soft); }
+.kcard__tag--borrador { color: var(--text-inverse); background: var(--color-warm-gray); }
+/* Las flechas de orden viven con el título: lo que mueven está al lado. */
+.orden { display: inline-flex; gap: 2px; margin-right: 2px; }
+.orden__b {
+  width: 30px; min-height: var(--target); display: flex; align-items: center; justify-content: center;
+  font-size: 13px; line-height: 1; color: var(--text-secondary);
+  background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-sm);
+  transition: background var(--duration-hover) var(--ease), color var(--duration-hover) var(--ease);
+}
+.orden__b:hover:not(:disabled) { background: var(--action-primary); border-color: var(--action-primary); color: var(--text-inverse); }
+.orden__b:disabled { opacity: .3; }
 
 .admin-block { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--border-default); }
 .admin-block h3 { font-size: var(--fs-small); font-weight: 600; letter-spacing: 0; margin-bottom: var(--space-xs); }
@@ -1187,13 +1226,28 @@ body.has-actionbar .chatbox { bottom: calc(var(--bottomnav-h) + var(--safe-b) + 
   border: 1px solid var(--border-default); border-radius: var(--radius-xl);
   background: var(--bg-surface); padding: var(--space-sm);
 }
-.agenda__fila { display: grid; grid-template-columns: 96px repeat(5, minmax(84px, 1fr)); gap: 4px; align-items: center; }
+.agenda__fila { display: grid; grid-template-columns: 108px repeat(5, minmax(84px, 1fr)); gap: 4px; align-items: center; }
 .agenda__fila--head { position: sticky; top: 0; }
 .agenda__hora, .agenda__dia {
   font-size: 11px; font-weight: 600; letter-spacing: .04em; color: var(--text-secondary);
   text-align: center; padding: 4px 0;
 }
-.agenda__dia { text-align: left; color: var(--text-primary); font-size: var(--fs-small); }
+/* El día entero en un toque: apagar un lunes pedía cinco. */
+.agenda__dia {
+  text-align: left; color: var(--text-primary); font-size: var(--fs-small);
+  /* En columna y no en fila: "Miércoles" más "apagar" no caben de lado en los
+     96 px de la primera columna, y la palabra quedaba cortada. */
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0;
+  min-height: var(--target); padding: 3px 8px; line-height: 1.25;
+  background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-md);
+  transition: border-color var(--duration-hover) var(--ease);
+}
+.agenda__dia:hover { border-color: var(--color-warm-gray); }
+.agenda__diaX {
+  font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.agenda__dia:hover .agenda__diaX { color: var(--action-primary); }
 .agenda__celda {
   min-height: var(--target); display: flex; align-items: center; justify-content: center;
   background: var(--bg-page); border: 1px solid var(--border-default); border-radius: var(--radius-md);

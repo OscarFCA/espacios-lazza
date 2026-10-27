@@ -331,8 +331,13 @@
       '</div>' +
       S.DIAS.slice(1).concat([S.DIAS[0]]).map(function (d) {
         var ids = a[d.id] || [];
+        /* El día completo en un toque: apagar un lunes pedía cinco. */
+        var todo = ids.length === S.HORARIOS.length;
         return '<div class="agenda__fila">' +
-          '<span class="agenda__dia">' + esc(d.label) + '</span>' +
+          '<button type="button" class="agenda__dia" data-action="agenda-dia" data-dia="' + d.id + '" ' +
+            'aria-label="' + esc(d.label + ": " + (todo ? "apagar el día entero" : "encender el día entero")) + '">' +
+            esc(d.label) + '<span class="agenda__diaX" aria-hidden="true">' +
+            (todo ? "apagar" : "todo") + '</span></button>' +
           S.HORARIOS.map(function (h) {
             var on = ids.indexOf(h.id) >= 0;
             return '<button type="button" class="agenda__celda' + (on ? " is-on" : "") + '" ' +
@@ -506,8 +511,15 @@
         "Publica la primera y aparece en el sitio al instante: en el catálogo, en el buscador y en la portada.",
         [{ txt: "Publicar propiedad", accion: "prop-new" }]);
     }
+    var S2 = window.Store;
+    var vivas = props.filter(function (x) { return S2.publicada(x); }).length;
+    var borradores = props.length - vivas;
+
     return bandaNube() + '<div class="admin-bar">' +
-        '<p class="small">' + props.length + ' propiedades publicadas</p>' +
+        '<p class="small">' + vivas + (vivas === 1 ? ' propiedad publicada' : ' propiedades publicadas') +
+          (borradores ? ' · ' + borradores + (borradores === 1 ? ' en borrador' : ' en borrador') : '') +
+          '<br><span style="color:var(--text-secondary)">Las flechas deciden el orden del catálogo: ' +
+          'la primera de esta lista encabeza el sitio.</span></p>' +
         '<button class="btn btn--primary btn--sm" data-action="prop-new">Publicar propiedad</button>' +
       '</div>' +
       '<div class="admin-table" role="table">' +
@@ -515,18 +527,32 @@
           '<span role="columnheader">Propiedad</span><span role="columnheader">Operación</span>' +
           '<span role="columnheader">Precio</span><span role="columnheader">Interés</span><span></span>' +
         '</div>' +
-        props.map(function (p) {
+        props.map(function (p, i) {
           var act = window.Store.actividadDeSlug(p.slug);
           var g = act.filter(function (a) { return a.tipo === "guardado"; }).length;
           var c = act.filter(function (a) { return a.tipo === "compartido"; }).length;
           var msj = act.filter(function (a) { return a.tipo === "contacto" || a.tipo === "visita"; }).length;
-          return '<div class="admin-row" role="row">' +
-            '<span role="cell"><strong>' + esc(p.title) + '</strong>' + (p.exclusiva ? ' <span class="kcard__tag">anticipada</span>' : "") +
+          /* Subir y bajar en lugar de un campo de número: el orden se ve y se
+             corrige mirando la lista, no calculando. Van con el resto de los
+             controles de la fila y miden los 44 px de --target, como todo lo
+             demás: dos flechitas de 22 habrían repetido el defecto E9 que esta
+             misma auditoría señaló. */
+          var flechas = '<span class="orden">' +
+            '<button class="orden__b" data-action="prop-orden" data-slug="' + esc(p.slug) + '" data-dir="-1"' +
+              (i === 0 ? " disabled" : "") + ' aria-label="Subir ' + esc(p.title) + ' en el catálogo">↑</button>' +
+            '<button class="orden__b" data-action="prop-orden" data-slug="' + esc(p.slug) + '" data-dir="1"' +
+              (i === props.length - 1 ? " disabled" : "") + ' aria-label="Bajar ' + esc(p.title) + ' en el catálogo">↓</button>' +
+          '</span>';
+          return '<div class="admin-row' + (S2.publicada(p) ? "" : " admin-row--borrador") + '" role="row">' +
+            '<span role="cell"><strong>' + esc(p.title) + '</strong>' +
+              (S2.publicada(p) ? "" : ' <span class="kcard__tag kcard__tag--borrador">borrador</span>') +
+              (p.exclusiva ? ' <span class="kcard__tag">anticipada</span>' : "") +
               '<br><span class="small" style="color:var(--text-secondary)">' + esc(p.tipo) + ' · ' + esc(p.condicion || "—") + ' · ' + esc(p.zona) + '</span></span>' +
             '<span role="cell">' + (p.op === "renta" ? "Renta" : "Venta") + (p.negociable ? '<br><span class="small" style="color:var(--text-secondary)">negociable</span>' : "") + '</span>' +
             '<span role="cell">' + esc(dinero(p.price)) + '</span>' +
             '<span role="cell">' + g + ' guard. · ' + c + ' comp. · ' + msj + ' msj.</span>' +
-            '<span role="cell" style="display:flex;gap:4px;justify-content:flex-end">' +
+            '<span role="cell" style="display:flex;gap:4px;justify-content:flex-end;align-items:center">' +
+              flechas +
               '<button class="btn btn--quiet btn--sm" data-action="prop-edit" data-slug="' + esc(p.slug) + '">Editar</button>' +
               '<button class="btn btn--link" data-action="prop-del" data-slug="' + esc(p.slug) + '">Quitar</button>' +
             '</span>' +
@@ -563,7 +589,9 @@
   function formPropiedad(p) {
     var nueva = !p || !p.slug;
     p = p || { slug: "", op: "venta", tipo: "Casa", condicion: "Lista para habitar",
-               negociable: false, exclusiva: false, fotos: [], fotosCount: 1 };
+               negociable: false, exclusiva: false, publicada: true, fotos: [], fotosCount: 1 };
+    /* Lo que nunca tuvo el campo estaba publicado: solo el `false` esconde. */
+    var viva = p.publicada !== false;
     var tipos = window.EL_CATALOG.tipos;
     var condiciones = window.EL_CATALOG.condiciones;
     var num = function (v) { return v ? v : ""; };
@@ -640,6 +668,13 @@
 
           '<section class="prop__bloque">' +
             '<h3>4 · Cómo se cuenta</h3>' +
+            /* Antes todo salía al sitio en el instante de guardar, aunque
+               faltaran las fotos o el precio estuviera por confirmar. Para un
+               catálogo que se arma poco a poco, este era el campo que faltaba. */
+            '<div class="switch"><label for="pf-publicada">Publicada en el sitio' +
+              '<span class="switch__ayuda">Apágala para trabajarla en borrador: la ves aquí, ' +
+              'pero no aparece en el catálogo ni se abre por su dirección.</span></label>' +
+              '<input type="checkbox" id="pf-publicada" name="publicada"' + (viva ? " checked" : "") + '></div>' +
             campo("pf-cond", "condicion", "Condición", { select: ops(condiciones, p.condicion),
               ayuda: "Lista para habitar · Para remodelar · Obra negra · Terreno libre." }) +
             '<div class="switch"><label for="pf-negociable">El precio es negociable</label>' +
@@ -657,9 +692,16 @@
         '</form>' +
       '</div>' +
 
-      '<aside class="prop__vista">' +
+      /* Todo el bloque es decorativo, el rótulo incluido: anunciar "Así se
+         verá" y después nada no ayuda a nadie. */
+      '<aside class="prop__vista" aria-hidden="true">' +
         '<p class="prop__vistaT">Así se verá</p>' +
-        '<div id="pf-vista"></div>' +
+        /* Es una muestra, no un control: se redibuja con cada tecla y un lector
+           de pantalla la releía entera a cada letra. Fuera del árbol accesible
+           y fuera del tabulador —tabular desde el título ya no atraviesa una
+           tarjeta falsa—. Quien no ve la pantalla tiene el resumen del precio
+           en su propio campo. */
+        '<div id="pf-vista" aria-hidden="true" inert></div>' +
       '</aside>' +
     '</div>' +
 
@@ -667,7 +709,8 @@
       '<p class="prop__faltan" id="pf-faltan" hidden></p>' +
       '<div class="prop__botones">' +
         '<button class="btn btn--link" data-action="prop-cerrar">Cancelar</button>' +
-        '<button class="btn btn--primary" data-action="prop-save">' + (nueva ? "Publicar" : "Guardar") + '</button>' +
+        '<button class="btn btn--primary" data-action="prop-save" id="pf-save">' +
+          (nueva ? (viva ? "Publicar" : "Guardar borrador") : "Guardar cambios") + '</button>' +
       '</div>' +
     '</div>';
   }
@@ -682,7 +725,10 @@
     return {
       slug: slug || slugify((v.title || "") + "-" + String(v.zona || "").split(",")[0]),
       op: v.op, tipo: v.tipo, condicion: v.condicion,
-      negociable: !!v.negociable, exclusiva: !!v.exclusiva,
+      negociable: !!v.negociable, exclusiva: !!v.exclusiva, publicada: !!v.publicada,
+      /* El orden lo fija la lista con las flechas; recoger el formulario no
+         debe devolver una propiedad al final del escaparate. */
+      orden: Number(propOriginal && propOriginal.orden) || 0,
       title: (v.title || "").trim(), zona: (v.zona || "").trim(), price: soloNum(v.price),
       terreno: soloNum(v.terreno), construido: soloNum(v.construido),
       rec: soloNum(v.rec), ban: soloNum(v.ban), autos: soloNum(v.autos),
@@ -737,6 +783,11 @@
     p.title = p.title || "Sin título todavía";
     p.zona = p.zona || "Sin ubicación";
     caja.innerHTML = ui().tarjetaHTML(p);
+    /* `inert` saca del tabulador por sí solo, pero no en todos los navegadores
+       con los que se entra a un sitio inmobiliario: el tabindex lo asegura. */
+    Array.prototype.forEach.call(
+      caja.querySelectorAll('a, button, input, select, textarea, [tabindex]'),
+      function (el) { el.setAttribute("tabindex", "-1"); });
 
     var url = document.getElementById("pf-url");
     if (url) {
@@ -751,6 +802,13 @@
     }
     var mxn = document.querySelector(".moneda__mxn");
     if (mxn) mxn.textContent = "MXN" + (p.op === "renta" ? " / mes" : "");
+    var boton = document.getElementById("pf-save");
+    var form2 = document.getElementById("prop-form");
+    if (boton && form2) {
+      boton.textContent = form2.getAttribute("data-slug")
+        ? "Guardar cambios"
+        : (p.publicada ? "Publicar" : "Guardar borrador");
+    }
     guardarBorrador(p);
   }
 
@@ -1012,7 +1070,12 @@
 
     switch (action) {
       case "admin-reset":
-        if (confirm("Esto borra los interesados, la actividad y las propiedades dadas de alta en este navegador, y repone los datos de ejemplo. ¿Continuar?")) {
+        /* El catálogo de demostración se borró: reiniciar ya no repone ninguna
+           propiedad, solo los tres interesados de ejemplo. Decir otra cosa
+           describía un sistema que cambió. */
+        if (confirm("Esto borra de este navegador los interesados, sus conversaciones, la actividad, " +
+                    "los horarios y las propiedades que hayas dado de alta, y repone los interesados " +
+                    "de ejemplo. No se puede deshacer. ¿Continuar?")) {
           S.reiniciar(); ui().toast("Datos reiniciados."); ui().render();
         }
         return true;
@@ -1029,6 +1092,15 @@
         var etiqueta = target.querySelector(".sr-only");
         target.innerHTML = (etiqueta ? etiqueta.outerHTML : "") + (!on ? icon("check", 15) : "");
         pintarGuardarAgenda();
+        return true;
+      }
+      case "agenda-dia": {
+        var ad = agendaBorrador();
+        var dd = target.getAttribute("data-dia");
+        var lleno = (ad[dd] || []).length === S.HORARIOS.length;
+        ad[dd] = lleno ? [] : S.HORARIOS.map(function (h) { return h.id; });
+        ui().render();
+        ui().toast(lleno ? "Día cerrado a visitas." : "Día abierto todo el horario.");
         return true;
       }
       case "agenda-save":
@@ -1144,6 +1216,13 @@
         return true;
       }
       case "lead-delete": {
+        /* Siete segundos de "Deshacer" son red corta para la ficha y la
+           conversación de un cliente real: primero se pregunta. */
+        var aBorrar = S.lead(target.getAttribute("data-lead"));
+        var cuantos = aBorrar ? S.conversacion(aBorrar.id).length : 0;
+        if (!confirm("Se elimina la ficha de " + ((aBorrar && aBorrar.nombre) || "este interesado") +
+                     (cuantos ? ", con sus " + cuantos + " mensajes" : "") +
+                     " y sus notas. ¿Eliminar?")) return true;
         var borrado = S.borrarLead(target.getAttribute("data-lead"));
         ui().closeSheet();
         ui().render();
@@ -1171,6 +1250,11 @@
           var pot = document.getElementById("pf-pot");
           if (pot && p) pot.value = p.potencial || "";
         });
+        return true;
+      }
+      case "prop-orden": {
+        S.moverPropiedad(target.getAttribute("data-slug"), Number(target.getAttribute("data-dir")));
+        ui().render();
         return true;
       }
       case "prop-del": {
@@ -1206,7 +1290,9 @@
         fotosPendientes = null;
         tirarBorrador();
         ui().closeSheet();
-        ui().toast((nueva ? "Propiedad publicada." : "Cambios guardados.") + avisoSlug);
+        ui().toast((nueva
+          ? (prop.publicada ? "Propiedad publicada." : "Guardada en borrador: todavía no se ve en el sitio.")
+          : (prop.publicada ? "Cambios guardados." : "Cambios guardados. Sigue en borrador.")) + avisoSlug);
         ui().render();
         return true;
       }

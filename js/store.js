@@ -450,6 +450,12 @@
 
     db.sesion = existente.id;
     save();
+    /* El alta llega al servidor aunque la persona no escriba nada más: que
+       alguien se registre ya es un interesado, y el equipo debe verlo. */
+    if (nubeViva()) {
+      var suLead = db.leads.filter(function (x) { return x.usuarioId === existente.id; })[0];
+      window.Nube.registrarContacto({ usuario: existente, lead: suLead });
+    }
     return { ok: true, usuario: existente };
   }
 
@@ -482,6 +488,7 @@
         catch (e) { return { ok: false, motivo: "password", detalle: e.message }; }
         db.sesion = u.id; db.admin = true; save();
         await refrescarNube();
+        await refrescarCrm();
         return { ok: true, admin: true, usuario: u };
       }
       var passOk = (await sha256(ADMIN_SALT + String(password || ""))) === ADMIN_HASH;
@@ -498,7 +505,7 @@
     return db.usuarios.filter(function (u) { return u.id === db.sesion; })[0] || null;
   }
   function salir() {
-    db.sesion = null; db.admin = false; save();
+    db.sesion = null; db.admin = false; crmNube = null; save();
     if (nubeViva() && window.Nube.hayEquipo()) {
       window.Nube.salir().then(refrescarNube);
     }
@@ -506,20 +513,29 @@
 
   /* ------------------------------ actividad ----------------------------- */
 
-  function registrarActividad(tipo, slug) {
+  /* `conMensaje` lo pone enviarMensaje, que manda todo junto en un viaje:
+     registrar aquí por separado duplicaría la fila y, peor, podría llegar
+     antes que la ficha de la que cuelga. */
+  function registrarActividad(tipo, slug, conMensaje) {
     var u = sesion();
-    if (!u) return;
-    db.actividad.unshift({ id: uid("act"), tipo: tipo, usuarioId: u.id, nombre: u.nombre, slug: slug, fecha: hoy() });
+    if (!u) return null;
+    var a = { id: uid("act"), tipo: tipo, usuarioId: u.id, nombre: u.nombre, slug: slug, fecha: hoy() };
+    db.actividad.unshift(a);
+    if (crmVivo()) crmNube.actividad.unshift(a);
     var lead = db.leads.filter(function (l) { return l.usuarioId === u.id; })[0];
     if (lead) lead.actualizado = hoy();
     save();
+    /* Guardar o compartir una propiedad lo hace el cliente, que escribe con
+       la llave pública. Si falla no se le dice nada: no pidió nada. */
+    if (!conMensaje && nubeViva()) window.Nube.registrarContacto({ actividad: a });
+    return a;
   }
 
   function actividadDe(usuarioId) {
-    return db.actividad.filter(function (a) { return a.usuarioId === usuarioId; });
+    return listaActividad().filter(function (a) { return a.usuarioId === usuarioId; });
   }
   function actividadDeSlug(slug) {
-    return db.actividad.filter(function (a) { return a.slug === slug; });
+    return listaActividad().filter(function (a) { return a.slug === slug; });
   }
 
   /* --------------------------- favoritos ------------------------------- */
@@ -545,8 +561,70 @@
 
   /* ------------------------------- leads -------------------------------- */
 
-  function leads() { return db.leads.slice(); }
-  function lead(id) { return db.leads.filter(function (l) { return l.id === id; })[0] || null; }
+  /* ====================== el CRM, cuando hay nube ======================
+   * Mismo truco que con el catálogo: las vistas siguen llamando a `leads()`
+   * y siguen recibiendo un arreglo al instante. Lo que cambia es de dónde
+   * salió lo que hay en memoria.
+   *
+   * Con el equipo dentro, manda el servidor: es la única copia que ve lo que
+   * escribió un cliente desde SU teléfono. Sin sesión de equipo se sigue
+   * leyendo el navegador, que es lo único que el cliente puede ver —no tiene
+   * permiso de lectura en el servidor, a propósito—.
+   */
+  var crmNube = null;              // null = todavía no llega
+
+  function crmVivo() {
+    return nubeViva() && !!db.admin && window.Nube.hayEquipo() && !!crmNube;
+  }
+  function listaLeads()     { return crmVivo() ? crmNube.leads     : db.leads; }
+  function listaMensajes()  { return crmVivo() ? crmNube.mensajes  : db.mensajes; }
+  function listaActividad() { return crmVivo() ? crmNube.actividad : db.actividad; }
+
+  function refrescarCrm() {
+    if (!nubeViva() || !window.Nube.hayEquipo()) return Promise.resolve(null);
+    return window.Nube.traerCrm().then(function (d) {
+      if (d) crmNube = d;
+      if (alLlegar) alLlegar();
+      return d;
+    }).catch(function (e) {
+      console.warn("No se pudo leer el CRM del servidor.", e);
+      return null;
+    });
+  }
+  /* Empujar sin bloquear la pantalla: la acción ya se vio, y si el servidor
+     la rechaza se avisa, no se deshace a la brava delante de quien la hizo. */
+  function empujar(promesa, queFallo) {
+    if (!promesa || !promesa.catch) return;
+    promesa.catch(function (e) {
+      if (avisar) avisar("No se guardó en el servidor: " + queFallo + ". " + (e.message || ""));
+    });
+  }
+  /* Una fila por interesado, y en orden. Cada envío manda la ficha ENTERA, así
+     que dos en vuelo a la vez se pisan: agregar una nota y cambiar el
+     presupuesto seguidos terminaba con el presupuesto en cero, porque la nota
+     —que salió primero pero llegó después— reescribía la fila con el valor
+     viejo. Encadenarlos lo resuelve y, de paso, el último lee el estado final
+     del objeto porque `aFilaLead` se evalúa cuando le toca el turno. */
+  var colaLead = {};
+
+  function empujarLead(l) {
+    if (!l || !crmVivo()) return;
+    var id = l.id;
+    var previo = colaLead[id] || Promise.resolve();
+    colaLead[id] = previo
+      .catch(function () {})            // un fallo no congela la fila
+      .then(function () {
+        if (!crmVivo()) return null;
+        return window.Nube.guardarLead(l);
+      })
+      .catch(function (e) {
+        if (avisar) avisar("No se guardó en el servidor: la ficha de " +
+                           (l.nombre || "el interesado") + ". " + (e.message || ""));
+      });
+  }
+
+  function leads() { return listaLeads().slice(); }
+  function lead(id) { return listaLeads().filter(function (l) { return l.id === id; })[0] || null; }
 
   function actualizarLead(id, campos) {
     var l = lead(id);
@@ -564,6 +642,7 @@
       if ("whatsapp" in campos) u.whatsapp = limpiarTel(campos.whatsapp, paisDe(campos.paisWa || l.paisWa || l.pais));
     }
     save();
+    empujarLead(l);
     return l;
   }
   function moverLead(id, etapa) { return actualizarLead(id, { etapa: etapa }); }
@@ -577,6 +656,7 @@
     l.seguimiento.unshift(nota);
     l.actualizado = hoy();
     save();
+    empujarLead(l);
     return nota;
   }
   function borrarNota(leadId, notaId) {
@@ -585,18 +665,29 @@
     l.seguimiento = (l.seguimiento || []).filter(function (n) { return n.id !== notaId; });
     l.actualizado = hoy();
     save();
+    empujarLead(l);
   }
   /* Devuelve lo borrado para poder deshacerlo: un borrado accidental no debe
      ser definitivo (heurística de control y libertad). */
   function borrarLead(id) {
     var l = lead(id);
+    if (crmVivo()) {
+      crmNube.leads = crmNube.leads.filter(function (x) { return x.id !== id; });
+      /* La conversación se va con la ficha: en la base hay un ON DELETE
+         CASCADE, así que aquí se hace lo mismo para que la pantalla no
+         enseñe mensajes huérfanos mientras llega la respuesta. */
+      crmNube.mensajes = crmNube.mensajes.filter(function (m) { return m.leadId !== id; });
+      empujar(window.Nube.borrarLeadNube(id), "el borrado de la ficha");
+    }
     db.leads = db.leads.filter(function (x) { return x.id !== id; });
+    db.mensajes = db.mensajes.filter(function (m) { return m.leadId !== id; });
     save();
     return l;
   }
   function restaurarLead(l) {
     if (!l) return;
-    db.leads.push(l);
+    if (crmVivo()) { crmNube.leads.push(l); empujarLead(l); }
+    else db.leads.push(l);
     save();
   }
   function existeSlug(slug) {
@@ -661,9 +752,26 @@
       fecha: hoy(), leido: false
     };
     db.mensajes.unshift(m);
+    if (crmVivo()) crmNube.mensajes.unshift(m);
     l.actualizado = hoy();
-    registrarActividad(m.tipo, m.slug);   // también guarda
+    var act = registrarActividad(m.tipo, m.slug, true);   // también guarda
     save();
+    /* Un solo viaje y en orden: el cliente, su ficha, el mensaje y el rastro.
+       Esto es lo que hace que el Kanban de Jaime se entere de que alguien
+       escribió desde su teléfono, que es justo lo que no pasaba. */
+    if (nubeViva()) {
+      window.Nube.registrarContacto({ usuario: u, lead: l, mensaje: m, actividad: act });
+      /* Y el aviso, para que el equipo no dependa de abrir el tablero. Va
+         aparte y sin esperarlo: si el correo falla, el mensaje ya está
+         guardado y la persona no tiene por qué enterarse de nada. */
+      var p = m.slug ? catalogoCompleto().filter(function (x) { return x.slug === m.slug; })[0] : null;
+      window.Nube.avisarEquipo({
+        tipo: m.tipo, nombre: u.nombre, correo: u.correo,
+        telefono: telMostrar(u.telefono, paisDeQuien(u)),
+        texto: m.texto, propiedad: p ? p.title + " · " + p.zona : "",
+        cuando: m.tipo === "visita" && m.dia ? m.dia + ", " + etiquetaHora(m.hora) : ""
+      });
+    }
     return { ok: true, mensaje: m, lead: l };
   }
 
@@ -677,15 +785,20 @@
       canal: "", dia: "", hora: "", fecha: hoy(), leido: true
     };
     db.mensajes.unshift(m);
+    if (crmVivo()) crmNube.mensajes.unshift(m);
     l.actualizado = hoy();
     save();
+    if (crmVivo()) {
+      empujar(window.Nube.guardarMensaje(m), "la respuesta");
+      empujarLead(l);
+    }
     return m;
   }
 
   /* Confirmar una visita es lo único que mueve una ficha de etapa sola: el
      equipo acaba de comprometer un día, y el tablero tiene que reflejarlo. */
   function confirmarVisita(mensajeId) {
-    var m = db.mensajes.filter(function (x) { return x.id === mensajeId; })[0];
+    var m = listaMensajes().filter(function (x) { return x.id === mensajeId; })[0];
     if (!m || m.tipo !== "visita" || m.confirmada) return null;
     m.confirmada = true;
     m.leido = true;
@@ -695,10 +808,14 @@
       l.actualizado = hoy();
     }
     save();
+    if (crmVivo()) {
+      empujar(window.Nube.guardarMensaje(m), "la confirmación de la visita");
+      empujarLead(l);
+    }
     return m;
   }
   function visitaPendiente(leadId) {
-    return db.mensajes.filter(function (m) {
+    return listaMensajes().filter(function (m) {
       return m.leadId === leadId && m.tipo === "visita" && !m.confirmada;
     }).sort(porFecha).pop() || null;
   }
@@ -736,7 +853,25 @@
 
   /* --------------------------- agenda --------------------------- */
 
+  /* La agenda es una sola para el negocio, no una por navegador: si Jaime
+     cierra el sábado desde su computadora, un cliente en su teléfono tiene
+     que dejar de ver el sábado. Por eso vive en el servidor y la lee
+     cualquiera —es la única tabla del CRM que el público puede leer—. */
+  var agendaNube = null;
+
+  function refrescarAgenda() {
+    if (!nubeViva()) return Promise.resolve(null);
+    return window.Nube.traerAgenda().then(function (v) {
+      if (v && typeof v === "object") {
+        agendaNube = v;
+        if (alLlegar) alLlegar();
+      }
+      return v;
+    });
+  }
+
   function agenda() {
+    if (agendaNube) return agendaNube;
     if (!db.agenda) db.agenda = agendaDefault();
     return db.agenda;
   }
@@ -749,6 +884,12 @@
     });
     db.agenda = limpia;
     save();
+    if (nubeViva()) {
+      agendaNube = limpia;
+      if (window.Nube.hayEquipo()) {
+        empujar(window.Nube.guardarAgendaNube(limpia), "los horarios de visita");
+      }
+    }
     return limpia;
   }
 
@@ -867,27 +1008,34 @@
     return "https://wa.me/" + n + "?text=" + encodeURIComponent(resumenWa(m));
   }
 
-  function mensajes() { return db.mensajes.slice(); }
+  /* "09-11" no le dice nada a quien abre el correo; "9:00 a 11:00" sí. */
+  function etiquetaHora(id) {
+    var h = HORARIOS.filter(function (x) { return x.id === id; })[0];
+    return h ? h.label : (id || "");
+  }
+
+  function mensajes() { return listaMensajes().slice(); }
   /* La conversación se lee del más viejo al más nuevo, como cualquier chat.
      Ordena por fecha y no por posición: el orden del arreglo no es un contrato. */
   function porFecha(a, b) { return new Date(a.fecha) - new Date(b.fecha); }
   function conversacion(leadId) {
-    return db.mensajes.filter(function (m) { return m.leadId === leadId; }).sort(porFecha);
+    return listaMensajes().filter(function (m) { return m.leadId === leadId; }).sort(porFecha);
   }
   function conversacionDe(usuarioId) {
-    return db.mensajes.filter(function (m) { return m.usuarioId === usuarioId; }).sort(porFecha);
+    return listaMensajes().filter(function (m) { return m.usuarioId === usuarioId; }).sort(porFecha);
   }
   function sinLeerDe(leadId) {
-    return db.mensajes.filter(function (m) {
+    return listaMensajes().filter(function (m) {
       return m.leadId === leadId && m.de === "cliente" && !m.leido;
     }).length;
   }
   function sinLeer() {
-    return db.mensajes.filter(function (m) { return m.de === "cliente" && !m.leido; }).length;
+    return listaMensajes().filter(function (m) { return m.de === "cliente" && !m.leido; }).length;
   }
   function marcarLeido(leadId) {
-    db.mensajes.forEach(function (m) { if (m.leadId === leadId) m.leido = true; });
+    listaMensajes().forEach(function (m) { if (m.leadId === leadId) m.leido = true; });
     save();
+    if (crmVivo()) window.Nube.marcarLeidos(leadId);
   }
   function ultimoMensaje(leadId) {
     var c = conversacion(leadId);
@@ -898,7 +1046,7 @@
      una conversación con tres peticiones sigue siendo una conversación. */
   function bandeja() {
     var porLead = {};
-    db.mensajes.forEach(function (m) {
+    listaMensajes().forEach(function (m) {
       if (!porLead[m.leadId]) porLead[m.leadId] = { leadId: m.leadId, total: 0, sinLeer: 0, ultimo: m };
       var h = porLead[m.leadId];
       h.total++;
@@ -928,8 +1076,17 @@
 
   function nubeViva() { return !!(window.Nube && window.Nube.configurada()); }
 
+  /* E2: el escaparate lo ordena el equipo, no la fecha de alta. Quien nunca
+     se ha tocado no tiene número y se va al final, conservando su orden
+     relativo —`sort` es estable—, así que no publicar nada no cambia nada. */
+  function ordenar(lista) {
+    return lista.sort(function (a, b) {
+      return (Number(a.orden) || 1e9) - (Number(b.orden) || 1e9);
+    });
+  }
+
   function catalogoCompleto() {
-    if (nubeViva()) return (deNube || []).slice();
+    if (nubeViva()) return ordenar((deNube || []).slice());
     var base = (window.EL_DATA || []).slice();
     var propias = db.propiedades || [];
     var fuera = {};
@@ -939,17 +1096,44 @@
       if (fuera[p.slug] || p.eliminada) { delete mapa[p.slug]; return; }
       mapa[p.slug] = p;
     });
-    return Object.keys(mapa).map(function (k) { return mapa[k]; });
+    return ordenar(Object.keys(mapa).map(function (k) { return mapa[k]; }));
+  }
+
+  /* E1: `publicada: false` es un borrador —existe en el panel, no en el sitio—.
+     Lo que nunca tuvo el campo estaba publicado, así que ausente vale por sí:
+     solo el `false` explícito esconde. */
+  function publicada(p) { return p.publicada !== false; }
+  function esBorrador(slug) {
+    return catalogoCompleto().some(function (p) { return p.slug === slug && !publicada(p); });
   }
 
   function catalogo() {
-    return catalogoCompleto().filter(function (p) { return !p.exclusiva; });
+    return catalogoCompleto().filter(function (p) { return publicada(p) && !p.exclusiva; });
   }
   function oportunidades() {
-    return catalogoCompleto().filter(function (p) { return p.exclusiva; });
+    return catalogoCompleto().filter(function (p) { return publicada(p) && p.exclusiva; });
   }
   function esExclusiva(slug) {
     return catalogoCompleto().some(function (p) { return p.slug === slug && p.exclusiva; });
+  }
+
+  /* Subir y bajar en vez de un campo numérico: nadie quiere decidir si una
+     casa es la "30" o la "40". Renumera toda la lista porque los órdenes
+     llegan en cero mientras nadie los haya tocado, y guarda solo lo que de
+     verdad cambió de número —con la nube, cada uno de esos es una escritura. */
+  function moverPropiedad(slug, dir) {
+    var lista = catalogoCompleto();
+    var i = -1;
+    lista.forEach(function (p, idx) { if (p.slug === slug) i = idx; });
+    var j = i + (dir < 0 ? -1 : 1);
+    if (i < 0 || j < 0 || j >= lista.length) return false;
+    var tmp = lista[i]; lista[i] = lista[j]; lista[j] = tmp;
+    lista.forEach(function (p, idx) {
+      if ((Number(p.orden) || 0) !== idx + 1) {
+        guardarPropiedad(Object.assign({}, p, { orden: idx + 1 }));
+      }
+    });
+    return true;
   }
 
   function guardarPropiedad(p) {
@@ -1033,7 +1217,11 @@
     if (nubeViva()) return !!db.admin && window.Nube.hayEquipo();
     return !!db.admin;
   }
-  function salirAdmin() { db.admin = false; save(); }
+  function salirAdmin() {
+    db.admin = false;
+    crmNube = null;        // lo del servidor no se queda colgando en pantalla
+    save();
+  }
 
   function reiniciar() {
     db = sembrar(vacio());
@@ -1058,7 +1246,7 @@
     buscarCuenta: buscarCuenta, iniciarSesion: iniciarSesion, DEMO: DEMO, alAvisar: alAvisar,
     usuarios: function () { return db.usuarios.slice(); },
     favoritos: favoritos, alternarFavorito: alternarFavorito,
-    registrarActividad: registrarActividad, actividad: function () { return db.actividad.slice(); },
+    registrarActividad: registrarActividad, actividad: function () { return listaActividad().slice(); },
     actividadDe: actividadDe, actividadDeSlug: actividadDeSlug,
     leads: leads, lead: lead, actualizarLead: actualizarLead, moverLead: moverLead,
     borrarLead: borrarLead, restaurarLead: restaurarLead, existeSlug: existeSlug,
@@ -1066,7 +1254,9 @@
     catalogo: catalogo, catalogoCompleto: catalogoCompleto,
     nubeViva: nubeViva, refrescarNube: refrescarNube, alRefrescar: alRefrescar,
     catalogoCargando: catalogoCargando,
+    crmVivo: crmVivo, refrescarCrm: refrescarCrm, refrescarAgenda: refrescarAgenda,
     oportunidades: oportunidades, esExclusiva: esExclusiva, propiedadesPropias: function () { return (db.propiedades || []).slice(); },
+    publicada: publicada, esBorrador: esBorrador, moverPropiedad: moverPropiedad,
     guardarPropiedad: guardarPropiedad, eliminarPropiedad: eliminarPropiedad,
     entrarAdmin: entrarAdmin, esAdmin: esAdmin, salirAdmin: salirAdmin, nombreAsesor: nombreAsesor,
     reiniciar: reiniciar

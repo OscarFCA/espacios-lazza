@@ -275,6 +275,7 @@
     if (screen === "results") return "#/resultados" + toQuery();
     if (screen === "detail") return "#/propiedad/" + state.sel;
     if (screen === "saved") return "#/guardados";
+    if (screen === "privacidad") return "#/privacidad";
     if (screen === "oportunidades") return "#/oportunidades";
     if (screen === "perfil") return "#/perfil" + (state.perfilTab !== "perfil" ? "/" + state.perfilTab : "");
     return "#/";
@@ -301,6 +302,9 @@
     if (path.indexOf("#/propiedad/") === 0) {
       var slug = decodeURIComponent(path.slice("#/propiedad/".length));
       if (!S.catalogoCompleto().some(function (p) { return p.slug === slug; })) { location.replace("#/"); return; }
+      /* E1: un borrador existe en el panel pero no en el sitio. Quien tenga la
+         dirección a mano y no sea del equipo no debe poder abrirlo. */
+      if (S.esBorrador(slug) && !S.esAdmin()) { location.replace("#/"); return; }
       if (S.esExclusiva(slug) && !S.sesion()) {
         state.screen = "oportunidades";
         state.sel = slug;
@@ -320,6 +324,13 @@
       applyQuery(qs);
       state.screen = "results";
       startLoading();
+      return;
+    }
+
+    if (path.indexOf("#/privacidad") === 0) {
+      state.screen = "privacidad";
+      render();
+      if (!forced) window.scrollTo(0, 0);
       return;
     }
 
@@ -466,13 +477,17 @@
     var delTrato = DATA.filter(function (p) { return p.op === state.op; });
     var destacadas = delTrato.slice(0, 6);
     var total = delTrato.length;
+    /* Con el catálogo entero vacío, los atajos y los tres campos de búsqueda
+       solo llevan a cero resultados: ofrecer seis caminos que no van a ningún
+       lado es peor que no ofrecer ninguno. Vuelven en cuanto se publica algo. */
+    var hayAlgo = S.catalogoCargando() || S.catalogoCompleto().length > 0;
     return '' +
     '<section class="container hero">' +
       '<p class="eyebrow">Patrimonio · Inversión · Arquitectura</p>' +
       '<h1>Encuentra el potencial de tu patrimonio.</h1>' +
       '<p class="hero__sub">Propiedades, terrenos y oportunidades de inversión en los lugares que importan.</p>' +
 
-      '<div class="tabs" role="tablist" aria-label="Operación">' +
+      (hayAlgo ? '<div class="tabs" role="tablist" aria-label="Operación">' +
         '<button class="tab" role="tab" aria-selected="' + (state.op === "venta") + '" data-action="set-op" data-op="venta">Comprar</button>' +
         '<button class="tab" role="tab" aria-selected="' + (state.op === "renta") + '" data-action="set-op" data-op="renta">Rentar</button>' +
       '</div>' +
@@ -503,7 +518,7 @@
         quick("Casas de descanso", { tipos: ["Casa de descanso"] }) +
         quick("Para remodelar", { condiciones: ["Para remodelar"] }) +
         quick("Precio negociable", { negociable: true }) +
-      '</div>' +
+      '</div>' : "") +
 
     '</section>' +
 
@@ -517,14 +532,18 @@
         ? '<div class="grid">' + skeletonHTML(3) + '</div>'
       : total
         ? '<div class="grid">' + destacadas.map(function (p) { return cardHTML(p); }).join("") + '</div>'
+      : !hayAlgo
+        ? vacioHTML("Todavía no hay propiedades publicadas.",
+            "Estamos preparando la selección. Si buscas algo en concreto, dinos qué y te avisamos en cuanto entre.",
+            [{ txt: "Hablar con un asesor", accion: "contact" }])
         : vacioHTML(
-            state.op === "renta" ? "Todavía no hay nada en renta." : "Todavía no hay propiedades publicadas.",
+            state.op === "renta" ? "Todavía no hay nada en renta." : "Todavía no hay propiedades en venta.",
             state.op === "renta"
               ? "Por ahora solo tenemos propiedades en venta. En cuanto entre algo en renta, aparece aquí."
-              : "Estamos preparando la selección. En cuanto publiquemos las primeras, las verás aquí.",
-            state.op === "renta"
-              ? [{ txt: "Ver lo que hay en venta", accion: "quick", patch: { op: "venta", tipos: [], condiciones: [] } }]
-              : [{ txt: "Hablar con un asesor", accion: "contact" }])) +
+              : "Por ahora solo tenemos propiedades en renta. En cuanto entre algo en venta, aparece aquí.",
+            [{ txt: state.op === "renta" ? "Ver lo que hay en venta" : "Ver lo que hay en renta",
+               accion: "quick",
+               patch: { op: state.op === "renta" ? "venta" : "renta", tipos: [], condiciones: [] } }])) +
     '</section>' +
 
     '<section class="section--soft">' +
@@ -549,6 +568,62 @@
           '<p>Trabajamos con información verificable —superficie, frente, uso de suelo y estado real— para que cada decisión se tome con claridad y no con urgencia.</p>' +
           '<div><button class="btn btn--primary" data-action="contact">Hablar con un asesor</button></div>' +
         '</div>' +
+      '</div>' +
+    '</section>';
+  }
+
+  /* ---------- Aviso de privacidad ---------- */
+  /* El registro pide nombre, correo y teléfono: eso es tratamiento de datos
+     personales y la LFPDPPP pide avisarlo. Los seis apartados son los del
+     artículo 16. OJO: el domicilio fiscal completo y la razón social los tiene
+     que confirmar Jaime; aquí va la ciudad y los medios de contacto reales. */
+  function viewPrivacidad() {
+    var items = [
+      ["Quién es el responsable",
+       "Legato Capital, con domicilio en la Ciudad de México, es responsable del uso y la " +
+       "protección de los datos personales que nos compartes a través de este sitio. Puedes " +
+       "escribirnos a info@lazza.com.mx o al 55 2250 4642."],
+      ["Qué datos recabamos",
+       "Solo lo que escribes al crear una cuenta o al contactarnos: nombre, correo electrónico " +
+       "y teléfono. Si nos cuentas tu presupuesto o la propiedad que te interesa, lo guardamos " +
+       "junto con tu solicitud. No pedimos datos financieros, no usamos cookies de publicidad " +
+       "y no recabamos datos sensibles."],
+      ["Para qué los usamos",
+       "Para responder tu mensaje, agendar una visita, mostrarte las propiedades que guardaste " +
+       "y darte seguimiento sobre las que te interesan. Nada más: no vendemos, rentamos ni " +
+       "intercambiamos tus datos, y no te escribimos publicidad de terceros."],
+      ["Con quién los compartimos",
+       "Con nadie fuera del equipo de Legato Capital. Usamos proveedores de servicio para " +
+       "alojar la información y, si conectas una visita a un calendario, Google Calendar " +
+       "registra la cita. Esos proveedores solo la tratan por nuestra instrucción. No hay " +
+       "transferencias a terceros que requieran tu consentimiento."],
+      ["Cómo limitar el uso de tus datos",
+       "Puedes pedir que dejemos de escribirte en cualquier momento, por el mismo medio por el " +
+       "que nos contactaste. Si cierras tu cuenta, dejamos de usar tus datos para darte " +
+       "seguimiento."],
+      ["Cómo ejercer tus derechos ARCO",
+       "Tienes derecho a acceder a tus datos, rectificarlos si están mal, cancelarlos u " +
+       "oponerte a su uso. Escríbenos a info@lazza.com.mx desde el correo con el que te " +
+       "registraste, di qué derecho quieres ejercer y te contestamos en un plazo máximo de " +
+       "veinte días hábiles."],
+      ["Si esto cambia",
+       "Cualquier cambio a este aviso se publica en esta misma página, con la fecha de la " +
+       "última actualización. Te recomendamos revisarla de vez en cuando."]
+    ];
+
+    return '' +
+    '<section class="container legal">' +
+      '<p class="eyebrow">Legato Capital</p>' +
+      '<h1>Aviso de privacidad</h1>' +
+      '<p class="legal__fecha">Última actualización: 25 de octubre de 2026.</p>' +
+      '<p class="lead">Este sitio pide tu nombre, tu correo y tu teléfono para una sola cosa: ' +
+        'poder contestarte. Aquí dice exactamente qué hacemos con ellos.</p>' +
+      items.map(function (it) {
+        return '<div class="legal__bloque"><h2>' + esc(it[0]) + '</h2><p>' + esc(it[1]) + '</p></div>';
+      }).join("") +
+      '<div class="legal__pie">' +
+        '<button class="btn btn--secondary" data-action="home">Volver al inicio</button>' +
+        '<button class="btn btn--primary" data-action="contact">Hablar con un asesor</button>' +
       '</div>' +
     '</section>';
   }
@@ -1027,7 +1102,8 @@
 
   function render() {
     refrescarDatos();
-    var html = state.screen === "oportunidades" ? viewOportunidades()
+    var html = state.screen === "privacidad" ? viewPrivacidad()
+             : state.screen === "oportunidades" ? viewOportunidades()
              : state.screen === "perfil" ? viewPerfil()
              : state.screen === "results" ? viewResults()
              : state.screen === "detail" ? viewDetail()
@@ -1042,6 +1118,7 @@
       : state.screen === "saved" ? "Guardados · Legato Capital"
       : state.screen === "oportunidades" ? "Oportunidades · Legato Capital"
       : state.screen === "perfil" ? "Mi perfil · Legato Capital"
+      : state.screen === "privacidad" ? "Aviso de privacidad · Legato Capital"
       : "Legato Capital · Patrimonio que trasciende";
     bindViewEvents();
   }
@@ -1320,7 +1397,8 @@
         campo("rg-nombre", "nombre", "Nombre completo", "text", 'autocomplete="name" required') +
         campo("rg-correo", "correo", "Correo", "email", 'autocomplete="email" inputmode="email" required') +
         campoTel("rg", errores.telefono, valores) +
-        '<p class="small" style="color:var(--text-secondary)">Usamos tus datos para darte seguimiento sobre las propiedades que te interesen. Nada más.</p>' +
+        '<p class="small" style="color:var(--text-secondary)">Usamos tus datos para darte seguimiento sobre las propiedades ' +
+          'que te interesen. Nada más. Lee el <a href="#/privacidad" data-action="sheet-close">aviso de privacidad</a>.</p>' +
       '</form>' +
     '</div>' +
     '<div class="sheet__foot">' +
@@ -1356,9 +1434,6 @@
         '</form>'
       : '<p class="lead">Entra a tu cuenta para ver tus propiedades guardadas.</p>' +
         '<form id="login-form" style="display:grid;gap:16px;margin-top:20px">' + campoId + '</form>' +
-        // Prototipo: cuenta de prueba a la mano para revisar el lado del usuario.
-        '<p class="small" style="color:var(--text-secondary);margin-top:12px">' +
-          'Cuenta de prueba: <strong>' + esc(S.DEMO.correo) + '</strong> (sin contraseña).</p>' +
         (error === "no-existe"
           ? '<button class="btn btn--line btn--block" data-action="signup" style="margin-top:4px">Crear cuenta con estos datos</button>'
           : "");
@@ -1983,7 +2058,7 @@
   // Arranque
   if (!location.hash) history.replaceState(null, "", "#/");
   window.Admin.bind();
-  window.Bot.montar();
+  if (window.Bot) window.Bot.montar();   // dormido: js/bot.js no se descarga
   route(true);
 
   /* El catálogo de la nube llega después del primer dibujo: cuando aterriza,
@@ -1992,5 +2067,11 @@
   if (S.nubeViva()) {
     S.alRefrescar(function () { render(); });
     S.refrescarNube();
+    /* Los horarios los lee todo el mundo: sin ellos, el formulario de visita
+       ofrecería la agenda por omisión y no la que el equipo dejó puesta. */
+    S.refrescarAgenda();
+    /* Y si la sesión del equipo seguía viva de una visita anterior, su CRM
+       tiene que llegar antes de que mire el tablero. */
+    if (S.esAdmin()) S.refrescarCrm();
   }
 })();
