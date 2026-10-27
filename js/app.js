@@ -1138,7 +1138,71 @@
       : state.screen === "perfil" ? "Mi perfil · Legato Capital"
       : state.screen === "privacidad" ? "Aviso de privacidad · Legato Capital"
       : "Legato Capital · Patrimonio que trasciende";
+    pintarDatosEstructurados();
     bindViewEvents();
+  }
+
+  /* Datos estructurados. Google renderiza JavaScript, así que esto sí lo lee;
+     lo que NO puede es tratar /#/propiedad/x como página aparte, porque
+     descarta el fragmento. O sea: describe bien lo que hay, pero no convierte
+     cada ficha en un resultado propio. Para eso haría falta darle página de
+     verdad a cada propiedad, que está anotado en la auditoría del 26-oct. */
+  function pintarDatosEstructurados() {
+    var viejo = document.getElementById("ld-json");
+    if (viejo) viejo.remove();
+
+    var negocio = {
+      "@type": "RealEstateAgent",
+      name: "Legato Capital",
+      url: location.origin + location.pathname,
+      telephone: "+525522504642",
+      email: "info@lazza.com.mx",
+      areaServed: "Ciudad de México",
+      description: "Propiedades, terrenos y oportunidades de inversión."
+    };
+
+    var datos = negocio;
+    var p = state.screen === "detail"
+      ? S.catalogoCompleto().filter(function (x) { return x.slug === state.sel; })[0]
+      : null;
+    if (p) {
+      datos = {
+        "@type": "RealEstateListing",
+        name: p.title,
+        url: location.href,
+        description: p.desc || p.title,
+        datePosted: p.alta || undefined,
+        offers: {
+          "@type": "Offer",
+          price: Number(p.price) || 0,
+          priceCurrency: "MXN",
+          availability: "https://schema.org/InStock",
+          businessFunction: p.op === "renta"
+            ? "http://purl.org/goodrelations/v1#LeaseOut"
+            : "http://purl.org/goodrelations/v1#Sell"
+        },
+        about: {
+          "@type": p.tipo === "Terreno" ? "Place" : "SingleFamilyResidence",
+          address: { "@type": "PostalAddress", addressLocality: p.zona, addressCountry: "MX" },
+          numberOfRooms: Number(p.rec) || undefined,
+          numberOfBathroomsTotal: Number(p.ban) || undefined,
+          floorSize: Number(p.construido)
+            ? { "@type": "QuantitativeValue", value: Number(p.construido), unitCode: "MTK" } : undefined,
+          lotSize: Number(p.terreno)
+            ? { "@type": "QuantitativeValue", value: Number(p.terreno), unitCode: "MTK" } : undefined
+        },
+        provider: negocio
+      };
+    }
+
+    var et = document.createElement("script");
+    et.type = "application/ld+json";
+    et.id = "ld-json";
+    /* Sin los `undefined`, que JSON.stringify ya quita, y escapando `<` para
+       que un título con un signo raro no pueda cerrar la etiqueta. */
+    et.textContent = JSON.stringify(Object.assign({ "@context": "https://schema.org" }, datos))
+      .replace(/</g, "\\u003c");
+    document.head.appendChild(et);
   }
 
   function bindViewEvents() {
@@ -1568,6 +1632,37 @@
     var u = S.sesion();
     var minimo = S.hoyLocal();
 
+    /* Antes esto no se abría sin cuenta: pulsar «Contactar» llevaba a un
+       registro —nombre, correo, país y teléfono— y el mensaje venía después,
+       en otra pantalla. Quien tenía una duda de treinta segundos no la hacía.
+       Ahora se escribe primero y los datos se piden aquí abajo, en la misma
+       pantalla, que es el orden en que la gente piensa. La cuenta se crea
+       sola al enviar. */
+    var contacto = u ? "" :
+      '<div class="msj__quienes">' +
+        /* No «¿Cómo te contestamos?»: justo encima está «¿Cómo prefieres que
+           te contestemos?» y dos preguntas casi iguales seguidas se leen mal. */
+        '<p class="msj__quienesT">Tus datos</p>' +
+        '<div class="field' + (errores.nombre ? " field--error" : "") + '">' +
+          '<label for="mj-nombre">Tu nombre</label>' +
+          '<input id="mj-nombre" name="nombre" type="text" autocomplete="name" ' +
+            'placeholder="Nombre y apellido" value="' + esc(v.nombre || "") + '"' +
+            (errores.nombre ? ' aria-invalid="true" aria-describedby="mj-nombre-e"' : "") + '>' +
+          campoError("mj-nombre", errores.nombre) +
+        '</div>' +
+        campoTel("mj", errores.telefono, v) +
+        '<div class="field' + (errores.correo ? " field--error" : "") + '">' +
+          '<label for="mj-correo">Correo</label>' +
+          '<input id="mj-correo" name="correo" type="email" autocomplete="email" inputmode="email" ' +
+            'placeholder="tu@correo.com" value="' + esc(v.correo || "") + '"' +
+            (errores.correo ? ' aria-invalid="true" aria-describedby="mj-correo-e"' : "") + '>' +
+          campoError("mj-correo", errores.correo) +
+        '</div>' +
+        '<p class="small" style="color:var(--text-secondary)">Con esto te creamos una cuenta para ' +
+          'que puedas seguir lo que te interesa. Lee el <a href="#/privacidad" data-action="sheet-close">' +
+          'aviso de privacidad</a>.</p>' +
+      '</div>';
+
     var bloques = S.bloquesDe(v.dia || "");
     var cerrado = !!v.dia && !S.diaAbierto(v.dia);
     var agenda = !esVisita ? "" :
@@ -1621,7 +1716,7 @@
         '</div>' +
         /* Abrir conversación exige un WhatsApp. Se pide una sola vez: quien ya
            lo dio —aquí o en el asistente— no lo vuelve a ver. */
-        (S.tieneWhatsApp() ? "" :
+        (!u || S.tieneWhatsApp() ? "" :
           '<div class="field' + (errores.whatsapp ? " field--error" : "") + '">' +
             '<label for="mj-wa">Tu WhatsApp</label>' +
             '<div class="telfield">' +
@@ -1633,9 +1728,12 @@
             campoError("mj-wa", errores.whatsapp) +
             '<p class="small" style="color:var(--text-secondary)">Es por donde te responde el asesor.</p>' +
           '</div>') +
+        contacto +
       '</form>' +
-      '<p class="small msj__quien">Te buscaremos como <strong>' + esc(u.nombre) + '</strong> · ' +
-        esc(S.telMostrar(u)) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>' +
+      (u
+        ? '<p class="small msj__quien">Te buscaremos como <strong>' + esc(u.nombre) + '</strong> · ' +
+          esc(S.telMostrar(u)) + ' · ' + esc(u.correo) + '. Puedes corregirlo en tu perfil.</p>'
+        : "") +
     '</div>' +
     '<div class="sheet__foot">' +
       '<button class="btn btn--link" data-action="sheet-close">Cancelar</button>' +
@@ -1705,17 +1803,11 @@
       toast("Estás con la cuenta del equipo. Esto es lo que ve un cliente.");
       return;
     }
-    if (!S.sesion()) {
-      pedirRegistro(tipo === "visita"
-        ? "Crea tu cuenta para agendar la visita: necesitamos cómo confirmártela."
-        : "Crea tu cuenta para escribirle al equipo: necesitamos cómo contestarte.",
-        function () { openSheet(mensajeHTML(), montarMensaje); });
-      return;
-    }
+    /* Sin puerta: el formulario ya pide los datos al final. */
     openSheet(mensajeHTML(), montarMensaje);
   }
 
-  function montarMensaje() { ligarPais("mj-wa"); ligarAgenda(); }
+  function montarMensaje() { ligarPais("mj-wa"); ligarPais("mj"); ligarAgenda(); }
 
   function enviarMsj() {
     var f = document.getElementById("mensaje-form");
@@ -1726,6 +1818,24 @@
       dia: f.dia ? f.dia.value : "", hora: f.hora ? f.hora.value : "",
       whatsapp: f.whatsapp ? f.whatsapp.value : "", paisWa: f.paisWa ? f.paisWa.value : ""
     };
+
+    /* Sin cuenta, se crea aquí con lo que acaba de escribir. Primero se valida
+       el mensaje y luego los datos, o alguien rellenaría nombre, correo y
+       teléfono para que después le digan que el mensaje era muy corto. */
+    if (!S.sesion()) {
+      datos.nombre = f.nombre ? f.nombre.value : "";
+      datos.correo = f.correo ? f.correo.value : "";
+      datos.telefono = f.telefono ? f.telefono.value : "";
+      datos.pais = f.pais ? f.pais.value : "";
+      var errMsj = S.validarMensaje(datos);
+      if (Object.keys(errMsj).length) { openSheet(mensajeHTML(errMsj, datos), montarMensaje); return; }
+      var reg = S.registrar({
+        nombre: datos.nombre, correo: datos.correo,
+        telefono: datos.telefono, pais: datos.pais, origen: msj.slug
+      });
+      if (!reg.ok) { openSheet(mensajeHTML(reg.errores, datos), montarMensaje); return; }
+    }
+
     if (f.whatsapp) {
       var w = S.guardarWhatsApp(datos.whatsapp, datos.paisWa);
       if (!w.ok) { openSheet(mensajeHTML({ whatsapp: w.error }, datos), montarMensaje); return; }

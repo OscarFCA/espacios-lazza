@@ -622,7 +622,7 @@
       '<div class="prop__form">' +
         '<form id="prop-form" data-slug="' + esc(p.slug) + '">' +
 
-          '<section class="prop__bloque">' +
+          '<section class="prop__bloque" data-campo="fotos">' +
             '<h3>1 · Las fotografías</h3>' +
             '<p class="prop__guia">Es lo primero que mira quien busca casa. La primera es la portada.</p>' +
             '<label class="subir" for="pf-fotos">' + icon("image", 22) +
@@ -760,6 +760,12 @@
     if (!p.title) faltan.push({ campo: "title", que: "el título" });
     if (!p.zona) faltan.push({ campo: "zona", que: "la ubicación" });
     if (!p.price) faltan.push({ campo: "price", que: "el precio" });
+    /* Una propiedad sin fotos sale al catálogo con un rectángulo gris, y en
+       este negocio eso es no publicarla. Solo se exige al publicar: en
+       borrador se puede dejar a medias, que es para lo que sirve. */
+    if (p.publicada && !(p.fotos || []).length) {
+      faltan.push({ campo: "fotos", que: "al menos una fotografía" });
+    }
     return faltan;
   }
 
@@ -1295,7 +1301,12 @@
         var faltan = validarProp(prop);
         if (faltan.length) {
           pintarFaltan(faltan);
-          var primero = document.querySelector('.field--error input, .field--error textarea');
+          /* El campo de fotos es un `input file` escondido: enfocarlo sería
+             mandar el cursor a algo que no se ve. Se lleva la vista al bloque
+             y se enfoca el primer control visible que falte. */
+          var bloque = document.querySelector('.field--error');
+          if (bloque && bloque.scrollIntoView) bloque.scrollIntoView({ block: "center" });
+          var primero = document.querySelector('.field--error input:not(.sr-only), .field--error textarea');
           if (primero) primero.focus();
           return true;
         }

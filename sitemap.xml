@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Solo va la raíz, y es a propósito.
+     Las fichas viven detrás de una almohadilla (/#/propiedad/…) y los
+     buscadores descartan todo lo que va después de ella: una dirección con
+     fragmento es, para Google, la misma página que la raíz. Listarlas aquí no
+     las haría aparecer; sería un archivo que aparenta trabajo sin hacerlo.
+     Para que cada propiedad se indexe por separado hay que generarles página
+     propia; está anotado en la auditoría del 26-oct-2026. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://oscarfca.github.io/espacios-lazza/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

@@ -977,6 +977,20 @@ body.is-admin .footer { display: none; }
 .msj__prop span { display: grid; gap: 2px; font-size: var(--fs-small); min-width: 0; }
 .msj__prop span span { color: var(--text-on-sand); }
 .msj__quien { margin-top: var(--space-md); color: var(--text-secondary); line-height: 1.5; }
+/* Los datos de contacto van DESPUÉS del mensaje, visiblemente aparte: primero
+   se dice lo que se quiere preguntar y luego por dónde contestar. */
+/* Cuando falta la fotografía, se marca la zona de subida, no un campo que
+   nadie ve. */
+.prop__bloque.field--error .subir { border-color: var(--color-error, #b4452f); }
+.prop__bloque.field--error .thumbs__vacio { color: var(--color-error, #b4452f); }
+
+.msj__quienes {
+  display: grid; gap: var(--space-md);
+  margin-top: var(--space-xs); padding-top: var(--space-lg);
+  border-top: 1px solid var(--border-default);
+}
+.msj__quienesT { font-weight: 600; font-size: var(--fs-small); }
+.msj__quienes a { color: var(--action-primary); text-decoration: underline; text-underline-offset: 3px; }
 .msj__ok {
   display: flex; align-items: center; justify-content: center;
   width: 56px; height: 56px; margin-bottom: var(--space-md);

@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://oscarfca.github.io/espacios-lazza/sitemap.xml
